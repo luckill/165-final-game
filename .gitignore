@@ -3,4 +3,16 @@
 .out
 .blend
 .blend1
-
+Client/Client.iml
+Client/myGame/*.class
+Client/tage/*.class
+Client/tage/ai/behaviortrees/*.class
+Client/tage/audio/*.class
+Client/tage/cameraController/*.class
+Client/tage/input/*.class
+Client/tage/networking/*.class
+Client/tage/nodeControllers/*.class
+Client/tage/objectRenderers/*.class
+Client/tage/physics/JBullet/*.class
+Client/tage/rml/*.class
+Client/tage/shapes/*.class
