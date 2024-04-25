@@ -12,9 +12,12 @@ Server/tage/audio/joal/*.class
 Client/tage/cameraController/*.class
 Client/tage/input/*.class
 Client/tage/networking/*.class
+Client/tage/networking/client*.class
+Client/tage/networking/server*.class
 Client/tage/nodeControllers/*.class
 Client/tage/objectRenderers/*.class
 Client/tage/physics/JBullet/*.class
+Client/tage/physics/*.class
 Client/tage/rml/*.class
 Client/tage/shapes/*.class
 Client/.idea/
@@ -26,9 +29,12 @@ Server/tage/audio/joal/*.class
 Server/tage/cameraController/*.class
 Server/tage/input/*.class
 Serveer/tage/networking/*.class
+Client/tage/networking/client*.class
+Client/tage/networking/server*.class
 server/tage/nodeControllers/*.class
 Server/tage/objectRenderers/*.class
 Server/tage/physics/JBullet/*.class
+Server/tage/physics/*.class
 Server/tage/rml/*.class
 Server/tage/shapes/*.class
 Server/*.class
