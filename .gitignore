@@ -13,8 +13,8 @@ Client/tage/cameraController/*.class
 Client/tage/input/*.class
 Client/tage/input/action/*.class
 Client/tage/networking/*.class
-Client/tage/networking/client*.class
-Client/tage/networking/server*.class
+Client/tage/networking/client/*.class
+Client/tage/networking/server/*.class
 Client/tage/nodeControllers/*.class
 Client/tage/objectRenderers/*.class
 Client/tage/physics/JBullet/*.class
@@ -31,8 +31,8 @@ Server/tage/cameraController/*.class
 Server/tage/input/*.class
 Server/tage/input/action/*.class
 Server/tage/networking/*.class
-Server/tage/networking/client*.class
-Server/tage/networking/server*.class
+Server/tage/networking/client/*.class
+Server/tage/networking/server/*.class
 server/tage/nodeControllers/*.class
 Server/tage/objectRenderers/*.class
 Server/tage/physics/JBullet/*.class
