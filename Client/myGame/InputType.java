@@ -1,0 +1,14 @@
+package myGame;
+
+public enum InputType
+{
+    FORWARD,
+    BACKWARD,
+    LEFT,
+    RIGHT,
+    UP,
+    DOWN,
+    GLOBAL_YAW_CONTROLLER,
+    LOCAL_PITCH_CONTROLLER,
+    MOVE_FORWARD_OR_BACKWARD_CONTROLLER
+}
