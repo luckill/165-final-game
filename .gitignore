@@ -8,6 +8,7 @@ Client/myGame/*.class
 Client/tage/*.class
 Client/tage/ai/behaviortrees/*.class
 Client/tage/audio/*.class
+Server/tage/audio/joal/*.class
 Client/tage/cameraController/*.class
 Client/tage/input/*.class
 Client/tage/networking/*.class
@@ -16,11 +17,12 @@ Client/tage/objectRenderers/*.class
 Client/tage/physics/JBullet/*.class
 Client/tage/rml/*.class
 Client/tage/shapes/*.class
-cient/.idea/
+Client/.idea/
 Server/Server.iml
 Server/tage/*.class
 Server/tage/ai/behaviortrees/*.class
-Serverr/tage/audio/*.class
+Server/tage/audio/*.class
+Server/tage/audio/joal/*.class
 Server/tage/cameraController/*.class
 Server/tage/input/*.class
 Serveer/tage/networking/*.class
@@ -31,3 +33,4 @@ Server/tage/rml/*.class
 Server/tage/shapes/*.class
 Server/*.class
 Server/.idea/
+out/
