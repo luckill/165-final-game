@@ -8,9 +8,10 @@ Client/myGame/*.class
 Client/tage/*.class
 Client/tage/ai/behaviortrees/*.class
 Client/tage/audio/*.class
-Server/tage/audio/joal/*.class
+Client/tage/audio/joal/*.class
 Client/tage/cameraController/*.class
 Client/tage/input/*.class
+Client/tage/input/action/*.class
 Client/tage/networking/*.class
 Client/tage/networking/client*.class
 Client/tage/networking/server*.class
@@ -28,9 +29,10 @@ Server/tage/audio/*.class
 Server/tage/audio/joal/*.class
 Server/tage/cameraController/*.class
 Server/tage/input/*.class
-Serveer/tage/networking/*.class
-Client/tage/networking/client*.class
-Client/tage/networking/server*.class
+Server/tage/input/action/*.class
+Server/tage/networking/*.class
+Server/tage/networking/client*.class
+Server/tage/networking/server*.class
 server/tage/nodeControllers/*.class
 Server/tage/objectRenderers/*.class
 Server/tage/physics/JBullet/*.class
