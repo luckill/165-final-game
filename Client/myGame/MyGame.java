@@ -31,8 +31,8 @@ public class MyGame extends VariableFrameRateGame
 	private double startTime, prevTime, elapsedTime;
 
 	private GameObject avatar, x, y, z, human, terrain, groundPlane;
-	private ObjShape ghostS,  line1, line2, line3, humanShape, terrainShape, plane;
-	private TextureImage ghostT, humanTexture, grass, terrainHeightMap, groundPlaneTexture;
+	private ObjShape  line1, line2, line3, humanShape, terrainShape, plane;
+	private TextureImage humanTexture, grass, terrainHeightMap, groundPlaneTexture;
 	private Light light;
 	private int fps, desert, volcano;
 
@@ -64,7 +64,7 @@ public class MyGame extends VariableFrameRateGame
 	@Override
 	public void loadShapes()
 	{
-		ghostS = new Sphere();
+		//ghostS = new Sphere();
 		line1 = new Line(new Vector3f(0, 0, 0), new Vector3f(100.0f, 0, 0));
 		line2 = new Line(new Vector3f(0, 0, 0), new Vector3f(0, 100.0f, 0));
 		line3 = new Line(new Vector3f(0, 0, 0), new Vector3f(0, 0, 100.0f));
@@ -87,7 +87,7 @@ public class MyGame extends VariableFrameRateGame
 	@Override
 	public void loadTextures()
 	{
-		ghostT = new TextureImage("redDolphin.jpg");
+		//ghostT = new TextureImage("redDolphin.jpg");
 		humanTexture = new TextureImage("humanUvUnwrap_colored.png");
 		grass = new TextureImage("grass.jpg");
 		terrainHeightMap = new TextureImage("HeightMap.png");
@@ -207,8 +207,8 @@ public class MyGame extends VariableFrameRateGame
 
 	// ---------- NETWORKING SECTION ----------------
 
-	public ObjShape getGhostShape() { return ghostS; }
-	public TextureImage getGhostTexture() { return ghostT; }
+	public ObjShape getGhostShape() { return humanShape; }
+	public TextureImage getGhostTexture() { return humanTexture; }
 	public GhostManager getGhostManager() { return gm; }
 	public Engine getEngine() { return engine; }
 	

@@ -2,6 +2,7 @@ package myGame;
 
 import java.awt.Color;
 import java.io.IOException;
+import java.lang.Math;
 import java.net.InetAddress;
 import java.util.Iterator;
 import java.util.UUID;
@@ -24,8 +25,9 @@ public class GhostManager
 		ObjShape s = game.getGhostShape();
 		TextureImage t = game.getGhostTexture();
 		GhostAvatar newAvatar = new GhostAvatar(id, s, t, position);
-		Matrix4f initialScale = (new Matrix4f()).scaling(0.25f);
+		Matrix4f initialScale = (new Matrix4f()).scaling(0.5f);
 		newAvatar.setLocalScale(initialScale);
+		newAvatar.getRenderStates().setModelOrientationCorrection(new Matrix4f().rotationY((float) Math.toRadians(90.0f)));
 		ghostAvatars.add(newAvatar);
 	}
 	
@@ -46,19 +48,33 @@ public class GhostManager
 		while(it.hasNext())
 		{	ghostAvatar = it.next();
 			if(ghostAvatar.getID().compareTo(id) == 0)
-			{	return ghostAvatar;
+			{
+				return ghostAvatar;
 			}
 		}		
 		return null;
 	}
-	
-	public void updateGhostAvatar(UUID id, Vector3f position)
-	{	GhostAvatar ghostAvatar = findAvatar(id);
+
+	public void updateGhostAvatar(UUID id, Vector3f position) {
+		GhostAvatar ghostAvatar = findAvatar(id);
+		if (ghostAvatar != null) {
+			ghostAvatar.setPosition(position);
+		}
+		else {
+			System.out.println("tried to update ghost avatar position, but unable to find ghost in list");
+		}
+	}
+
+	public void rotateGhostAvatar(UUID id, float angle)
+	{
+		GhostAvatar ghostAvatar = findAvatar(id);
 		if (ghostAvatar != null)
-		{	ghostAvatar.setPosition(position);
+		{
+			ghostAvatar.globalYaw(angle);
 		}
 		else
-		{	System.out.println("tried to update ghost avatar position, but unable to find ghost in list");
+		{
+			System.out.println("tried to update ghost avatar position, but unable to find ghost in list");
 		}
 	}
 }

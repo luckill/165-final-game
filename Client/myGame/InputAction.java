@@ -34,9 +34,11 @@ public class InputAction extends AbstractInputAction
         {
             case LEFT:
                 object.globalYaw((float) elapsedTime*2);
+                protocolClient.sendRotateMessage((float) elapsedTime*2);
                 break;
             case RIGHT:
                 object.globalYaw((float) -elapsedTime*2);
+                protocolClient.sendRotateMessage((float) -elapsedTime*2);
                 break;
             case FORWARD:
                 speed = (float) elapsedTime * 20;
