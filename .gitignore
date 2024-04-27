@@ -21,6 +21,7 @@ Client/tage/physics/JBullet/*.class
 Client/tage/physics/*.class
 Client/tage/rml/*.class
 Client/tage/shapes/*.class
+Client/run.bat
 Client/.idea/
 Server/Server.iml
 Server/tage/*.class
