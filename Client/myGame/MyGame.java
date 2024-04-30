@@ -70,6 +70,7 @@ public class MyGame extends VariableFrameRateGame
 		line3 = new Line(new Vector3f(0, 0, 0), new Vector3f(0, 0, 100.0f));
 		System.out.println("loading human now");
 		humanShape = new ImportedModel("human.obj");
+		grenadeShape = new ImportModel ("grenade.obj");
 		terrainShape = new TerrainPlane(1000);
 		plane = new Plane();
 	}
@@ -89,6 +90,7 @@ public class MyGame extends VariableFrameRateGame
 	{
 		//ghostT = new TextureImage("redDolphin.jpg");
 		humanTexture = new TextureImage("humanUvUnwrap_colored.png");
+		grenadeTexture = new TextureImage("grenade.png");
 		grass = new TextureImage("grass.jpg");
 		terrainHeightMap = new TextureImage("HeightMap.png");
 		groundPlaneTexture = new TextureImage("ground plane.png");
@@ -114,7 +116,10 @@ public class MyGame extends VariableFrameRateGame
 		avatar.setLocalRotation(initialRotation);
 		avatar.setLocalScale(initialScale);
 		avatar.getRenderStates().setModelOrientationCorrection(new Matrix4f().rotationY((float)Math.toRadians(90.0f)));
-
+		
+		//TODO
+		grenade = new GameObject (GameObject.root(), grenadeShape, grenadeTexture);
+		
 		terrain = new GameObject(GameObject.root(), terrainShape, grass);
 		terrain.setLocalTranslation(new Matrix4f().translation(0f,-0.01f,0f));
 		terrain.setLocalScale(new Matrix4f().scaling(500.0f,100.0f,500.0f));
