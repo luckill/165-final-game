@@ -2,7 +2,12 @@ package myGame;
 
 import net.java.games.input.Component;
 import tage.*;
+import tage.audio.*;
 import tage.cameraController.CameraOrbit3D;
+import tage.physics.JBullet.JBulletPhysicsEngine;
+import tage.physics.JBullet.JBulletPhysicsObject;
+import tage.physics.PhysicsEngine;
+import tage.physics.PhysicsObject;
 import tage.shapes.*;
 import tage.input.*;
 import tage.input.action.*;
@@ -16,35 +21,45 @@ import org.joml.*;
 import java.net.InetAddress;
 
 import java.net.UnknownHostException;
+import java.util.Arrays;
 
 import tage.networking.IGameConnection.ProtocolType;
+import com.bulletphysics.dynamics.DynamicsWorld;
+import com.bulletphysics.collision.broadphase.Dispatcher;
+import com.bulletphysics.collision.narrowphase.PersistentManifold;
+import com.bulletphysics.dynamics.RigidBody;
+import com.bulletphysics.collision.narrowphase.ManifoldPoint;
 
 public class MyGame extends VariableFrameRateGame
 {
 	private static Engine engine;
 	private InputManager inputManager;
 	private GhostManager gm;
-
 	private int counter = 0;
-	private Vector3f currentPosition;
-	private Matrix4f initialTranslation, initialRotation, initialScale;
 	private double startTime, prevTime, elapsedTime;
-
-	private GameObject avatar, x, y, z, human, terrain, groundPlane;
-	private ObjShape  line1, line2, line3, humanShape, terrainShape, plane;
-	private TextureImage humanTexture, grass, terrainHeightMap, groundPlaneTexture;
+	private GameObject avatar, x, y, z, terrain, groundPlane, grenade, speaker;
+	private ObjShape  line1, line2, line3, humanShape, ghostShape, terrainShape, plane, dolphinShape, grenadeShape, speakerShape;
+	private TextureImage humanTexture, grass, terrainHeightMap, groundPlaneTexture, grenadeTexture, ghostTexture;
+	private PhysicsEngine physicsEngine;
+	private PhysicsObject grenadeCapsule, physicsPlane;
+	private boolean running = false;
+	private float vals[] = new float[16];
 	private Light light;
 	private int fps, desert, volcano;
-
 	private String serverAddress;
 	private int serverPort;
 	private ProtocolType serverProtocol;
 	private ProtocolClient protClient;
 	private boolean isClientConnected = false;
 	private CameraOrbit3D cameraOrbitController;
+	private IAudioManager audioManager;
+	private Sound explosionSound, backgroundMusic;
+	private boolean exploded = false;
+	private boolean grenadeCreated = false;
 
 	public MyGame(String serverAddress, int serverPort, String protocol)
-	{	super();
+	{
+		super();
 		gm = new GhostManager(this);
 		this.serverAddress = serverAddress;
 		this.serverPort = serverPort;
@@ -55,7 +70,8 @@ public class MyGame extends VariableFrameRateGame
 	}
 
 	public static void main(String[] args)
-	{	MyGame game = new MyGame(args[0], Integer.parseInt(args[1]), args[2]);
+	{
+		MyGame game = new MyGame(args[0], Integer.parseInt(args[1]), args[2]);
 		engine = new Engine(game);
 		game.initializeSystem();
 		game.game_loop();
@@ -64,15 +80,17 @@ public class MyGame extends VariableFrameRateGame
 	@Override
 	public void loadShapes()
 	{
-		//ghostS = new Sphere();
 		line1 = new Line(new Vector3f(0, 0, 0), new Vector3f(100.0f, 0, 0));
 		line2 = new Line(new Vector3f(0, 0, 0), new Vector3f(0, 100.0f, 0));
 		line3 = new Line(new Vector3f(0, 0, 0), new Vector3f(0, 0, 100.0f));
 		System.out.println("loading human now");
 		humanShape = new ImportedModel("human.obj");
-		grenadeShape = new ImportModel ("grenade.obj");
+		ghostShape = humanShape;
+		grenadeShape = new ImportedModel ("grenade.obj");
 		terrainShape = new TerrainPlane(1000);
+		dolphinShape = new ImportedModel("dolphinHighPoly.obj");
 		plane = new Plane();
+		speakerShape = new Cube();
 	}
 
 	@Override
@@ -88,12 +106,33 @@ public class MyGame extends VariableFrameRateGame
 	@Override
 	public void loadTextures()
 	{
-		//ghostT = new TextureImage("redDolphin.jpg");
 		humanTexture = new TextureImage("humanUvUnwrap_colored.png");
-		grenadeTexture = new TextureImage("grenade.png");
 		grass = new TextureImage("grass.jpg");
 		terrainHeightMap = new TextureImage("HeightMap.png");
 		groundPlaneTexture = new TextureImage("ground plane.png");
+		grenadeTexture = new TextureImage("grenade.png");
+		ghostTexture = humanTexture;
+	}
+
+	@Override
+	public void loadSounds()
+	{
+		AudioResource resource;
+		audioManager = engine.getAudioManager();
+		resource = audioManager.createAudioResource("assets/sounds/explosionSound.wav", AudioResourceType.AUDIO_SAMPLE);
+		explosionSound = new Sound(resource, SoundType.SOUND_EFFECT, 100, false);
+		explosionSound.initialize(audioManager);
+		explosionSound.setMaxDistance(10.0f);
+		explosionSound.setMinDistance(0.5f);
+		explosionSound.setRollOff(0.05f);
+
+		AudioResource anotherResource;
+		anotherResource = audioManager.createAudioResource("assets/sounds/backgroundMusic.wav", AudioResourceType.AUDIO_STREAM);
+		backgroundMusic = new Sound(anotherResource, SoundType.SOUND_MUSIC, 100, true);
+		backgroundMusic.initialize(audioManager);
+		backgroundMusic.setMaxDistance(20.0f);
+		backgroundMusic.setMinDistance(0.5f);
+		backgroundMusic.setRollOff(0.5f);
 	}
 
 	@Override
@@ -116,21 +155,26 @@ public class MyGame extends VariableFrameRateGame
 		avatar.setLocalRotation(initialRotation);
 		avatar.setLocalScale(initialScale);
 		avatar.getRenderStates().setModelOrientationCorrection(new Matrix4f().rotationY((float)Math.toRadians(90.0f)));
-		
-		//TODO
-		grenade = new GameObject (GameObject.root(), grenadeShape, grenadeTexture);
-		
-		terrain = new GameObject(GameObject.root(), terrainShape, grass);
+
+		/*terrain = new GameObject(GameObject.root(), terrainShape, grass);
 		terrain.setLocalTranslation(new Matrix4f().translation(0f,-0.01f,0f));
 		terrain.setLocalScale(new Matrix4f().scaling(500.0f,100.0f,500.0f));
 		terrain.setHeightMap(terrainHeightMap);
 		terrain.getRenderStates().setTiling(1);
-		terrain.getRenderStates().setTileFactor(10);
+		terrain.getRenderStates().setTileFactor(10);*/
 
 		groundPlane = new GameObject(GameObject.root(), plane, groundPlaneTexture);
 		groundPlane.getRenderStates().setTiling(1);
 		groundPlane.getRenderStates().setTileFactor(12);
 		groundPlane.setLocalScale(new Matrix4f().scaling(1000.0f));
+
+		grenade = new GameObject(avatar, grenadeShape, grenadeTexture);
+		grenade.setLocalTranslation(new Matrix4f().translate(0,1.0f,-1.0f));
+		grenade.propagateRotation(false);
+		grenade.propagateTranslation(true);
+
+		speaker = new GameObject(avatar, speakerShape);
+		speaker.setLocalTranslation(new Matrix4f().translate(0,0,-10));
 	}
 
 	@Override
@@ -155,28 +199,103 @@ public class MyGame extends VariableFrameRateGame
 		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.D, new InputAction(avatar, InputType.RIGHT, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.W, new InputAction(avatar,InputType.FORWARD, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.S, new InputAction(avatar, InputType.BACKWARD, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+
+		//initialize physics system
+		float[] gravity = {0.0f,-5.0f,0.0f};
+		physicsEngine = engine.getSceneGraph().getPhysicsEngine();
+		physicsEngine.setGravity(gravity);
+
+		//create physics world
+		float mass = 1.0f;
+		float[] up = {0,1,0};
+		float radius = 0.15f;
+		float height = 0.7f;
+		double[] tempTransform;
+
+		Matrix4f translation = new Matrix4f(grenade.getLocalTranslation());
+		tempTransform = toDoubleArray(translation.get(vals));
+		grenadeCapsule = engine.getSceneGraph().addPhysicsCapsuleX(mass, tempTransform, radius, height);
+		float[] linearVelocity = {0.0f, 7.0f, -10.0f};
+		grenadeCapsule.setBounciness(0.5f);
+		grenadeCapsule.setFriction(70.0f);
+		grenadeCapsule.setLinearVelocity(linearVelocity);
+		grenade.setPhysicsObject(grenadeCapsule);
+
+		translation = new Matrix4f(groundPlane.getLocalTranslation());
+		tempTransform = toDoubleArray(translation.get(vals));
+		physicsPlane = engine.getSceneGraph().addPhysicsStaticPlane(tempTransform, up,0.0f);
+		physicsPlane.setBounciness(1.0f);
+		groundPlane.setPhysicsObject(physicsPlane);
+
+		//engine.enableGraphicsWorldRender();
+		engine.enablePhysicsWorldRender();
+
+		explosionSound.setLocation(grenade.getWorldLocation());
+		backgroundMusic.setLocation(speaker.getWorldLocation());
+		setEarParameters();
+		backgroundMusic.play();
 	}
 
-	public GameObject getAvatar() { return avatar; }
+	public GameObject getAvatar()
+	{
+		return avatar;
+	}
 
 	@Override
 	public void update()
-	{	elapsedTime = System.currentTimeMillis() - prevTime;
+	{
+		elapsedTime = System.currentTimeMillis() - prevTime;
 		prevTime = System.currentTimeMillis();
 		cameraOrbitController.updateCameraPosition();
-		//Vector3f location = avatar.getWorldLocation();
-		//float height = terrain.getHeight(location.x(), location.z());
-		//avatar.setLocalLocation(new Vector3f(location.x(), height+0.75f, location.y()));
+
+		if (running)
+		{
+			AxisAngle4f axisAngle = new AxisAngle4f();
+			Matrix4f matrix = new Matrix4f();
+			Matrix4f matrix2 = new Matrix4f();
+			Matrix4f matrix3 = new Matrix4f();
+			checkFortCollision();
+			float[] velocity = grenadeCapsule.getLinearVelocity();
+			double xzVelocity = Math.sqrt(Math.pow(velocity[0],2 ) + Math.pow(velocity[2], 2));
+			System.out.println("velocity: " + xzVelocity);
+			if(xzVelocity < 1.654f)
+			{
+				if (!exploded)
+				{
+					explosionSound.play(100, false);
+					exploded = true;
+					System.out.println("sound start playing");
+				}
+				engine.getSceneGraph().removeGameObject(grenade);
+				engine.getSceneGraph().removePhysicsObject(grenadeCapsule);
+			}
+			physicsEngine.update((float) elapsedTime);
+			for(GameObject gameObject : engine.getSceneGraph().getGameObjects())
+			{
+				if(gameObject.getPhysicsObject() != null)
+				{
+					matrix.set(toFloatArray(gameObject.getPhysicsObject().getTransform()));
+					matrix2.set(3, 0, matrix.m30());
+					matrix2.set(3, 1, matrix.m31());
+					matrix2.set(3, 2, matrix.m32());
+					gameObject.setLocalTranslation(matrix2);
+
+					matrix.getRotation(axisAngle);
+					matrix3.rotation(axisAngle);
+					gameObject.setLocalRotation(matrix3);
+				}
+			}
+		}
 		Vector3f loc = avatar.getWorldLocation();
-		float height = terrain.getHeight(loc.x(), loc.z());
-		avatar.setLocalLocation(new Vector3f(loc.x(), height + 0.25f, loc.z()));
+		//float height = terrain.getHeight(loc.x(), loc.z());
+		//avatar.setLocalLocation(new Vector3f(loc.x(), height + 0.25f, loc.z()));
 
 		// build and set HUD
 		int elapsTimeSec = Math.round((float)(System.currentTimeMillis()-startTime)/1000.0f);
 		String elapsTimeStr = Integer.toString(elapsTimeSec);
 		String counterStr = Integer.toString(counter);
 		String dispStr1 = "Time = " + elapsTimeStr;
-		String dispStr2 = "camera position = ";
+		String dispStr2 = "avatar position = " + avatar.getWorldLocation();
 		Vector3f hud1Color = new Vector3f(1,0,0);
 		Vector3f hud2Color = new Vector3f(1,1,1);
 		(engine.getHUDmanager()).setHUD1(dispStr1, hud1Color, 15, 15);
@@ -185,6 +304,72 @@ public class MyGame extends VariableFrameRateGame
 		// update inputs and camera
 		inputManager.update((float)elapsedTime);
 		processNetworking((float)elapsedTime);
+
+		//update sound
+		explosionSound.setLocation(grenade.getWorldLocation());
+		backgroundMusic.setLocation(speaker.getWorldLocation());
+		setEarParameters();
+	}
+
+	public void setEarParameters()
+	{
+		Camera camera = (engine.getRenderSystem()).getViewport("MAIN").getCamera();
+		audioManager.getEar().setLocation(avatar.getWorldLocation());
+		audioManager.getEar().setOrientation(camera.getN(), new Vector3f(0.0f, 1.0f, 0.0f));
+	}
+
+	private void checkFortCollision()
+	{
+		DynamicsWorld dynamicsWorld = ((JBulletPhysicsEngine)physicsEngine).getDynamicsWorld();
+		Dispatcher dispatcher = dynamicsWorld.getDispatcher();
+		int manifoldCount = dispatcher.getNumManifolds();
+		for (int i = 0; i < manifoldCount; i++)
+		{
+			PersistentManifold manifold = dispatcher.getManifoldByIndexInternal(i);
+			RigidBody object1 = (RigidBody)manifold.getBody0();
+			RigidBody object2 = (RigidBody)manifold.getBody1();
+			JBulletPhysicsObject obj1 = JBulletPhysicsObject.getJBulletPhysicsObject(object1);
+			JBulletPhysicsObject obj2 = JBulletPhysicsObject.getJBulletPhysicsObject(object2);
+			for(int j = 0; j < manifold.getNumContacts(); j++)
+			{
+				ManifoldPoint contactPoint = manifold.getContactPoint(j);
+				if(contactPoint.getDistance() < 0.0f)
+				{
+					System.out.println("hit between " + obj1 + "and" + obj2);
+					break;
+				}
+			}
+		}
+	}
+
+	private float[] toFloatArray(double[] array)
+	{
+		if(array == null)
+		{
+			return null;
+		}
+		int n = array.length;
+		float[] result = new float[n];
+		for(int i = 0; i < n; i++)
+		{
+			result[i] = (float)array[i];
+		}
+		return result;
+	}
+
+	private double[] toDoubleArray(float[] array)
+	{
+		if(array == null)
+		{
+			return null;
+		}
+		int n = array.length;
+		double[] result = new double[n];
+		for(int i = 0; i < n; i++)
+		{
+			result[i] = (double)array[i];
+		}
+		return result;
 	}
 
 	@Override
@@ -206,14 +391,27 @@ public class MyGame extends VariableFrameRateGame
 			case KeyEvent.VK_4:
 				engine.getSceneGraph().setSkyBoxEnabled(false);
 				break;
+			case KeyEvent.VK_SPACE:
+				System.out.println("Starting physics");
+				running = true;
+				break;
+			case KeyEvent.VK_P:
+				if(!backgroundMusic.getIsPlaying())
+				{
+					backgroundMusic.play();
+				}
+				else
+				{
+					backgroundMusic.pause();
+				}
 		}
 		super.keyPressed(e);
 	}
 
 	// ---------- NETWORKING SECTION ----------------
 
-	public ObjShape getGhostShape() { return humanShape; }
-	public TextureImage getGhostTexture() { return humanTexture; }
+	public ObjShape getGhostShape() { return ghostShape; }
+	public TextureImage getGhostTexture() { return ghostTexture; }
 	public GhostManager getGhostManager() { return gm; }
 	public Engine getEngine() { return engine; }
 	
