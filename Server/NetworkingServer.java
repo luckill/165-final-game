@@ -1,23 +1,32 @@
 import java.io.IOException;
-import tage.networking.IGameConnection.ProtocolType;
 
 public class NetworkingServer 
 {
 	private GameServerUDP thisUDPServer;
 	private GameServerTCP thisTCPServer;
+	//fallowing code14 NPC
+	private GameAIServerUDP UDPServer;
+	private NPCcontroller npcCtrl;
 
-	public NetworkingServer(int serverPort, String protocol) 
-	{	try 
+	public NetworkingServer(int serverPort, String protocol)
+	{
+		//npcCtrl = new NPCcontroller();
+		//start networking server
+		try
 		{	if(protocol.toUpperCase().compareTo("TCP") == 0)
 			{	thisTCPServer = new GameServerTCP(serverPort);
 			}
 			else
-			{	thisUDPServer = new GameServerUDP(serverPort);
+			{	//TODO: choose which udp server?
+				thisUDPServer = new GameServerUDP(serverPort);
+				//UDPServer = new GameAIServerUDP(serverPort, npcCtrl);
 			}
 		} 
 		catch (IOException e) 
-		{	e.printStackTrace();
+		{	System.out.println("server didn't start");
+			e.printStackTrace();
 		}
+		//npcCtrl.start(UDPServer);
 	}
 
 	public static void main(String[] args) 
