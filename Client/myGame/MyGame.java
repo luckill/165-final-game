@@ -12,6 +12,7 @@ import tage.shapes.*;
 import tage.input.*;
 import tage.input.action.*;
 
+import java.awt.*;
 import java.lang.Math;
 
 import java.awt.event.*;
@@ -21,9 +22,7 @@ import org.joml.*;
 import java.net.InetAddress;
 
 import java.net.UnknownHostException;
-import java.util.Arrays;
 import java.util.Timer;
-import java.util.TimerTask;
 
 import tage.networking.IGameConnection.ProtocolType;
 import com.bulletphysics.dynamics.DynamicsWorld;
@@ -39,7 +38,7 @@ public class MyGame extends VariableFrameRateGame
 	private GhostManager gm;
 	private int counter = 0;
 	private double startTime, prevTime, elapsedTime;
-	private GameObject avatar, x, y, z, terrain, groundPlane, grenade, speaker, animatedAvatar, robot;
+	private GameObject avatar, x, y, z, terrain, groundPlane, grenade, speaker, animatedAvatar;
 	private AnimatedShape humanAnimatedShape, robotAnimatedShape;
 	private ObjShape  line1, line2, line3, humanShape, ghostShape, terrainShape, plane, dolphinShape, grenadeShape, speakerShape;
 	private TextureImage humanTexture, grass, terrainHeightMap, groundPlaneTexture, grenadeTexture, ghostTexture;
@@ -65,6 +64,14 @@ public class MyGame extends VariableFrameRateGame
 	private float mass, radius, height;
 	private AudioResource resource;
 
+	private Robot robot;
+	private float currentMouseX, currentMouseY, centerMouseX, centerMouseY;
+	private float previousMouseX, previousMouseY;
+	private boolean isRendering;
+	private Camera camera;
+
+	//testing
+	private boolean stopPrinting = false;
 	public MyGame(String serverAddress, int serverPort, String protocol)
 	{
 		super();
@@ -84,6 +91,7 @@ public class MyGame extends VariableFrameRateGame
 		game.initializeSystem();
 		game.game_loop();
 	}
+
 
 	@Override
 	public void loadShapes()
@@ -187,18 +195,12 @@ public class MyGame extends VariableFrameRateGame
 		groundPlane = new GameObject(GameObject.root(), plane, groundPlaneTexture);
 		groundPlane.getRenderStates().setTiling(1);
 		groundPlane.getRenderStates().setTileFactor(12);
-		groundPlane.setLocalScale(new Matrix4f().scaling(1000.0f));
-
-		/*grenade = new GameObject(avatar, grenadeShape, grenadeTexture);
-		grenade.setLocalTranslation(new Matrix4f().translate(0,1.0f,-1.0f));
-		grenade.propagateRotation(false);
-		grenade.propagateTranslation(true);*/
+		groundPlane.setLocalScale(new Matrix4f().scaling(10000.0f));
 
 		speaker = new GameObject(GameObject.root(), speakerShape);
 		speaker.setParent(avatar);
 		speaker.setLocalTranslation(avatar.getWorldTranslation().translate(0,0,-10));
 		speaker.propagateRotation(false);
-		//speaker.applyParentRotationToPosition(true);
 
 		//robot = new GameObject(GameObject.root(), robotAnimatedShape);
 	}
@@ -215,16 +217,17 @@ public class MyGame extends VariableFrameRateGame
 	@Override
 	public void initializeGame()
 	{
+		initMouseMode();
 		prevTime = System.currentTimeMillis();
 		startTime = System.currentTimeMillis();
 		(engine.getRenderSystem()).setWindowDimensions(1900,1000);
-		cameraOrbitController = new CameraOrbit3D(engine.getRenderSystem().getViewport("MAIN").getCamera(), avatar, engine);
+		//cameraOrbitController = new CameraOrbit3D(engine.getRenderSystem().getViewport("MAIN").getCamera(), avatar, engine);
 
 		// ----------------- INPUTS SECTION -----------------------------
 		setupNetworking();
 		inputManager = engine.getInputManager();
-		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.A, new InputAction(avatar, InputType.LEFT, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.D, new InputAction(avatar, InputType.RIGHT, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+		//inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.A, new InputAction(avatar, InputType.LEFT, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+		//inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.D, new InputAction(avatar, InputType.RIGHT, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.W, new InputAction(avatar,InputType.FORWARD, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.S, new InputAction(avatar, InputType.BACKWARD, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 
@@ -248,7 +251,6 @@ public class MyGame extends VariableFrameRateGame
 		//engine.enableGraphicsWorldRender();
 		engine.enablePhysicsWorldRender();
 
-		//explosionSound.setLocation(grenade.getWorldLocation());
 		backgroundMusic.setLocation(speaker.getWorldLocation());
 		setEarParameters();
 		backgroundMusic.play();
@@ -264,14 +266,22 @@ public class MyGame extends VariableFrameRateGame
 	{
 		elapsedTime = System.currentTimeMillis() - prevTime;
 		prevTime = System.currentTimeMillis();
-		cameraOrbitController.updateCameraPosition();
+		float amt = (float) (elapsedTime * 0.03f);
+		//cameraOrbitController.updateCameraPosition();
+		camera = (engine.getRenderSystem().getViewport("MAIN").getCamera());
+		Vector3f forwardVector = avatar.getWorldForwardVector();
+		Vector3f upVector = avatar.getWorldUpVector();
+		Vector3f rightVector = avatar.getWorldRightVector();
+		camera.setLocation(avatar.getLocalLocation().add(upVector.mul(2.0f)));
 
-
+		//&& running
 		if (grenade == null && running)
 		{
+			System.out.println("avatar location: " + avatar.getWorldLocation().toString());
 			grenade = new GameObject(GameObject.root(), grenadeShape, grenadeTexture);
-			//Vector3f location = avatar.getWorldLocation();
 			grenade.setLocalLocation(avatar.getWorldLocation().add(0,2,-4));
+
+			System.out.println("grenade location: " + grenade.getWorldLocation().toString());
 			Matrix4f translation = new Matrix4f(grenade.getLocalTranslation());
 			tempTransform = toDoubleArray(translation.get(vals));
 			grenadeCapsule = engine.getSceneGraph().addPhysicsCapsuleX(mass, tempTransform, radius, height);
@@ -281,30 +291,30 @@ public class MyGame extends VariableFrameRateGame
 			Vector3f location = avatar.getLocalForwardVector();
 			float[] linearVelocity = new float[3];
 			linearVelocity[0] = location.x() * 10;
-			linearVelocity[1] = 7.0f;
+			linearVelocity[1] = 6.0f;
 			linearVelocity[2] = location.z() * 10;
 			grenadeCapsule.setLinearVelocity(linearVelocity);
 			grenade.setPhysicsObject(grenadeCapsule);
 
 			System.out.println("\n\n\nthrowing grenade now");
 		}
-
 		if (running)
 		{
-			AxisAngle4f axisAngle = new AxisAngle4f();
-			Matrix4f matrix = new Matrix4f();
-			Matrix4f matrix2 = new Matrix4f();
-			Matrix4f matrix3 = new Matrix4f();
 			//checkForCollision();
 			float[] velocity = grenadeCapsule.getLinearVelocity();
+
 			double xzVelocity = Math.sqrt(Math.pow(velocity[0],2 ) + Math.pow(velocity[2], 2));
-			System.out.println("velocity is; " + xzVelocity);
+			if(!stopPrinting)
+			{
+				System.out.println("velocity is " +  xzVelocity);
+			}
 			if(xzVelocity < 1.2f)
 			{
 				if (!exploded)
 				{
 					explosionSound.play();
 					exploded = true;
+					stopPrinting = true;
 				}
 				engine.getSceneGraph().removeGameObject(grenade);
 				engine.getSceneGraph().removePhysicsObject(grenadeCapsule);
@@ -314,37 +324,33 @@ public class MyGame extends VariableFrameRateGame
 					grenadeCapsule = null;
 					running = false;
 					exploded = false;
+					stopPrinting = false;
 				}
 			}
 		}
 
-		if (true)
-		{
-			AxisAngle4f aa = new AxisAngle4f();
-			Matrix4f mat = new Matrix4f();
-			Matrix4f mat2 = new Matrix4f().identity();
-			Matrix4f mat3 = new Matrix4f().identity();
-			checkForCollision();
-			physicsEngine.update((float) elapsedTime);
-			for (GameObject go : engine.getSceneGraph().getGameObjects())
-			{
-				if (go.getPhysicsObject() != null)
-				{ // set translation
-					mat.set(toFloatArray(go.getPhysicsObject().getTransform()));
-					mat2.set(3, 0, mat.m30());
-					mat2.set(3, 1, mat.m31());
-					mat2.set(3, 2, mat.m32());
-					go.setLocalTranslation(mat2);
-					mat.getRotation(aa);
-					mat3.rotation(aa);
-					go.setLocalRotation(mat3);
-				}
-			}
-		}
+        AxisAngle4f aa = new AxisAngle4f();
+        Matrix4f mat = new Matrix4f();
+        Matrix4f mat2 = new Matrix4f().identity();
+        Matrix4f mat3 = new Matrix4f().identity();
+        checkForCollision();
+        physicsEngine.update((float) elapsedTime);
+        for (GameObject go : engine.getSceneGraph().getGameObjects())
+        {
+            if (go.getPhysicsObject() != null)
+            { // set translation
+                mat.set(toFloatArray(go.getPhysicsObject().getTransform()));
+                mat2.set(3, 0, mat.m30());
+                mat2.set(3, 1, mat.m31());
+                mat2.set(3, 2, mat.m32());
+                go.setLocalTranslation(mat2);
+                mat.getRotation(aa);
+                mat3.rotation(aa);
+                go.setLocalRotation(mat3);
+            }
+        }
 
-
-
-		Vector3f loc = avatar.getWorldLocation();
+        Vector3f loc = avatar.getWorldLocation();
 		//float height = terrain.getHeight(loc.x(), loc.z());
 		//avatar.setLocalLocation(new Vector3f(loc.x(), height + 0.25f, loc.z()));
 
@@ -386,6 +392,54 @@ public class MyGame extends VariableFrameRateGame
 		audioManager.getEar().setOrientation(camera.getN(), new Vector3f(0.0f, 1.0f, 0.0f));
 	}
 
+	public void mouseMoved(MouseEvent mouseEvent)
+	{
+		if(isRendering && centerMouseX == mouseEvent.getXOnScreen() && centerMouseY == mouseEvent.getYOnScreen())
+		{
+			isRendering = false;
+		}
+		else
+		{
+			currentMouseX = mouseEvent.getXOnScreen();
+			currentMouseY = mouseEvent.getYOnScreen();
+			float mouseDeltaX = previousMouseX - currentMouseX;
+			float mouseDeltaY = previousMouseY - currentMouseY;
+			yaw(mouseDeltaX);
+			previousMouseX = currentMouseX;
+			previousMouseY = currentMouseY;
+     		// tell robot to put the cursor to the center (since user just moved it)
+			recenterMouse();
+			previousMouseX = centerMouseX; // reset prev to center
+			previousMouseY = centerMouseY;
+		}
+	}
+	public void yaw(float mouseDeltaX)
+	{
+		float tilt;
+		Camera camera = engine.getRenderSystem().getViewport("MAIN").getCamera();
+		Vector3f rightVector = camera.getU();
+		Vector3f upVector  = camera.getV();
+		Vector3f fwdVector = camera.getN();
+
+		if (mouseDeltaX < 0.0)
+		{
+			tilt = -1.0f;
+		}
+		else if (mouseDeltaX > 0.0)
+		{
+			tilt = 1.0f;
+		}
+		else
+		{
+			tilt = 0.0f;
+		}
+		rightVector.rotateAxis(0.01f * tilt, upVector.x(), upVector.y(), upVector.z());
+		fwdVector.rotateAxis(0.01f * tilt, upVector.x(), upVector.y(), upVector.z());
+		avatar.globalYaw(0.01f*tilt);
+		camera.setU(rightVector);
+		camera.setN(fwdVector);
+	}
+
 	private void checkForCollision()
 	{
 		DynamicsWorld dynamicsWorld = ((JBulletPhysicsEngine)physicsEngine).getDynamicsWorld();
@@ -403,7 +457,7 @@ public class MyGame extends VariableFrameRateGame
 				ManifoldPoint contactPoint = manifold.getContactPoint(j);
 				if(contactPoint.getDistance() < 0.0f)
 				{
-					System.out.println("hit between " + obj1 + "and" + obj2);
+					//System.out.println("hit between " + obj1 + "and" + obj2);
 					break;
 				}
 			}
@@ -440,6 +494,44 @@ public class MyGame extends VariableFrameRateGame
 		return result;
 	}
 
+	private void initMouseMode()
+	{
+		RenderSystem renderSystem = engine.getRenderSystem();
+		Viewport viewport = renderSystem.getViewport("MAIN");
+		float left = viewport.getActualLeft();
+		float bottom = viewport.getActualBottom();
+		float width = viewport.getActualWidth();
+		float height = viewport.getActualHeight();
+		centerMouseX = (int) (left + height/2);
+		centerMouseY = (int) (bottom - height/2);
+		isRendering = false;
+		try
+		{
+			robot = new Robot();
+		}
+		catch(AWTException exception)
+		{
+			throw new RuntimeException("couldn't create robot");
+		}
+		recenterMouse();
+		previousMouseX = centerMouseX;
+		previousMouseY = centerMouseY;
+	}
+
+	private void recenterMouse()
+	{
+		RenderSystem renderSystem = engine.getRenderSystem();
+		Viewport viewport = renderSystem.getViewport("MAIN");
+		float left = viewport.getActualLeft();
+		float bottom = viewport.getActualBottom();
+		float width = viewport.getActualWidth();
+		float height = viewport.getActualHeight();
+		centerMouseX = (int) (left + width/2.0f);
+		centerMouseY = (int) (bottom - height/2.0f);
+		isRendering = true;
+		robot.mouseMove((int)centerMouseX, (int)centerMouseY);
+	}
+
 	@Override
 	public void keyPressed(KeyEvent e)
 	{	switch (e.getKeyCode())
@@ -460,7 +552,6 @@ public class MyGame extends VariableFrameRateGame
 				engine.getSceneGraph().setSkyBoxEnabled(false);
 				break;
 			case KeyEvent.VK_SPACE:
-				System.out.println("Starting physics");
 				running = true;
 				break;
 			case KeyEvent.VK_P:
