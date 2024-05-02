@@ -3,6 +3,7 @@
 .out
 .blend
 .blend1
+165-final-game.iml
 Client/Client.iml
 Client/myGame/*.class
 Client/tage/*.class
