@@ -5,34 +5,43 @@ import java.util.UUID;
 import tage.networking.server.GameConnectionServer;
 import tage.networking.server.IClientInfo;
 
-public class GameServerUDP extends GameConnectionServer<UUID> {
-    public GameServerUDP(int localPort) throws IOException {
+public class GameServerUDP extends GameConnectionServer<UUID>
+{
+
+    public GameServerUDP(int localPort) throws IOException
+    {
         super(localPort, ProtocolType.UDP);
     }
 
     @Override
-    public void processPacket(Object o, InetAddress senderIP, int senderPort) {
+    public void processPacket(Object o, InetAddress senderIP, int senderPort)
+    {
         String message = (String) o;
         String[] messageTokens = message.split(",");
 
-        if (messageTokens.length > 0) {    // JOIN -- Case where client just joined the server
+        if (messageTokens.length > 0)
+        {    // JOIN -- Case where client just joined the server
             // Received Message Format: (join,localId)
-            if (messageTokens[0].compareTo("join") == 0) {
-                try {
+            if (messageTokens[0].compareTo("join") == 0)
+            {
+                try
+                {
                     IClientInfo ci;
                     ci = getServerSocket().createClientInfo(senderIP, senderPort);
                     UUID clientID = UUID.fromString(messageTokens[1]);
                     addClient(ci, clientID);
                     System.out.println("Join request received from - " + clientID.toString());
                     sendJoinedMessage(clientID, true);
-                } catch (IOException e) {
+                } catch (IOException e)
+                {
                     e.printStackTrace();
                 }
             }
 
             // BYE -- Case where clients leaves the server
             // Received Message Format: (bye,localId)
-            if (messageTokens[0].compareTo("bye") == 0) {
+            if (messageTokens[0].compareTo("bye") == 0)
+            {
                 UUID clientID = UUID.fromString(messageTokens[1]);
                 System.out.println("Exit request received from - " + clientID.toString());
                 sendByeMessages(clientID);
@@ -41,7 +50,8 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 
             // CREATE -- Case where server receives a create message (to specify avatar location)
             // Received Message Format: (create,localId,x,y,z)
-            if (messageTokens[0].compareTo("create") == 0) {
+            if (messageTokens[0].compareTo("create") == 0)
+            {
                 UUID clientID = UUID.fromString(messageTokens[1]);
                 String[] pos = {messageTokens[2], messageTokens[3], messageTokens[4]};
                 sendCreateMessages(clientID, pos);
@@ -50,7 +60,8 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 
             // DETAILS-FOR --- Case where server receives a details for message
             // Received Message Format: (dsfr,remoteId,localId,x,y,z)
-            if (messageTokens[0].compareTo("dsfr") == 0) {
+            if (messageTokens[0].compareTo("dsfr") == 0)
+            {
                 UUID clientID = UUID.fromString(messageTokens[1]);
                 UUID remoteID = UUID.fromString(messageTokens[2]);
                 String[] pos = {messageTokens[3], messageTokens[4], messageTokens[5]};
@@ -59,17 +70,19 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 
             // MOVE --- Case where server receives a move message
             // Received Message Format: (move,localId,x,y,z)
-            if (messageTokens[0].compareTo("move") == 0) {
+            if (messageTokens[0].compareTo("move") == 0)
+            {
                 UUID clientID = UUID.fromString(messageTokens[1]);
                 String[] pos = {messageTokens[2], messageTokens[3], messageTokens[4]};
                 sendMoveMessages(clientID, pos);
             }
 
-			if (messageTokens[0].compareTo("rotate") == 0) {
-				UUID clientID = UUID.fromString(messageTokens[1]);
-				String angle = messageTokens[2];
-				sendRotateMessage(clientID, angle);
-			}
+            if (messageTokens[0].compareTo("rotate") == 0)
+            {
+                UUID clientID = UUID.fromString(messageTokens[1]);
+                String angle = messageTokens[2];
+                sendRotateMessage(clientID, angle);
+            }
         }
     }
 
@@ -77,8 +90,10 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
     // request was able to be granted.
     // Message Format: (join,success) or (join,failure)
 
-    public void sendJoinedMessage(UUID clientID, boolean success) {
-        try {
+    public void sendJoinedMessage(UUID clientID, boolean success)
+    {
+        try
+        {
             System.out.println("trying to confirm join");
             String message = new String("join,");
             if (success)
@@ -86,7 +101,8 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
             else
                 message += "failure";
             sendPacket(message, clientID);
-        } catch (IOException e) {
+        } catch (IOException e)
+        {
             e.printStackTrace();
         }
     }
@@ -96,11 +112,14 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
     // when a client leaves the server.
     // Message Format: (bye,remoteId)
 
-    public void sendByeMessages(UUID clientID) {
-        try {
+    public void sendByeMessages(UUID clientID)
+    {
+        try
+        {
             String message = new String("bye," + clientID.toString());
             forwardPacketToAll(message, clientID);
-        } catch (IOException e) {
+        } catch (IOException e)
+        {
             e.printStackTrace();
         }
     }
@@ -112,14 +131,17 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
     // connected to the server.
     // Message Format: (create,remoteId,x,y,z) where x, y, and z represent the position
 
-    public void sendCreateMessages(UUID clientID, String[] position) {
-        try {
+    public void sendCreateMessages(UUID clientID, String[] position)
+    {
+        try
+        {
             String message = new String("create," + clientID.toString());
             message += "," + position[0];
             message += "," + position[1];
             message += "," + position[2];
             forwardPacketToAll(message, clientID);
-        } catch (IOException e) {
+        } catch (IOException e)
+        {
             e.printStackTrace();
         }
     }
@@ -130,14 +152,17 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
     // remoteId is used to send this message to the proper client.
     // Message Format: (dsfr,remoteId,x,y,z) where x, y, and z represent the position.
 
-    public void sendDetailsForMessage(UUID clientID, UUID remoteId, String[] position) {
-        try {
+    public void sendDetailsForMessage(UUID clientID, UUID remoteId, String[] position)
+    {
+        try
+        {
             String message = new String("dsfr," + remoteId.toString());
             message += "," + position[0];
             message += "," + position[1];
             message += "," + position[2];
             sendPacket(message, clientID);
-        } catch (IOException e) {
+        } catch (IOException e)
+        {
             e.printStackTrace();
         }
     }
@@ -147,11 +172,14 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
     // joins the server.
     // Message Format: (wsds,remoteId)
 
-    public void sendWantsDetailsMessages(UUID clientID) {
-        try {
+    public void sendWantsDetailsMessages(UUID clientID)
+    {
+        try
+        {
             String message = new String("wsds," + clientID.toString());
             forwardPacketToAll(message, clientID);
-        } catch (IOException e) {
+        } catch (IOException e)
+        {
             e.printStackTrace();
         }
     }
@@ -162,32 +190,30 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
     // Message Format: (move,remoteId,x,y,z) where x, y, and z represent the position.
 
     public void sendMoveMessages(UUID clientID, String[] position)
-	{
+    {
         try
-		{
+        {
             String message = new String("move," + clientID.toString());
             message += "," + position[0];
             message += "," + position[1];
             message += "," + position[2];
             forwardPacketToAll(message, clientID);
-        }
-		catch (IOException e)
-		{
+        } catch (IOException e)
+        {
             e.printStackTrace();
         }
     }
 
-	public void sendRotateMessage(UUID clientID, String angle)
-	{
-		try
-		{
-			String message = "rotate," + clientID.toString();
-			message += "," + angle;
-			forwardPacketToAll(message, clientID);
-		}
-		catch (IOException e)
-		{
-			e.printStackTrace();
-		}
-	}
+    public void sendRotateMessage(UUID clientID, String angle)
+    {
+        try
+        {
+            String message = "rotate," + clientID.toString();
+            message += "," + angle;
+            forwardPacketToAll(message, clientID);
+        } catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
 }

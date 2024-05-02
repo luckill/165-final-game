@@ -102,14 +102,10 @@ public class ImportedModel extends ObjShape
 		{	InputStream input = new FileInputStream(new File(filename));
 			BufferedReader br = new BufferedReader(new InputStreamReader(input));
 			String line;
-			int vCount = 0; 
-			int vnCount =0; 
-			int fCount = 0;
 			while ((line = br.readLine()) != null)
 			{	if(line.startsWith("v "))			// vertex position ("v" case)
 				{	for(String s : (line.substring(2)).split(" "))
 					{	vertVals.add(Float.valueOf(s));
-						vCount++;
 				}	}
 				else if(line.startsWith("vt"))			// texture coordinates ("vt" case)
 				{	for(String s : (line.substring(3)).split(" "))
@@ -118,7 +114,7 @@ public class ImportedModel extends ObjShape
 				else if(line.startsWith("vn"))			// vertex normals ("vn" case)
 				{	for(String s : (line.substring(3)).split(" "))
 					{	normVals.add(Float.valueOf(s));
-						vnCount++;
+
 				}	}
 				else if(line.startsWith("f"))			// triangle faces ("f" case)
 				{	for(String s : (line.substring(2)).split(" "))
@@ -140,10 +136,8 @@ public class ImportedModel extends ObjShape
 						normals.add(normVals.get(normRef));
 						normals.add(normVals.get(normRef+1));
 						normals.add(normVals.get(normRef+2));
-						fCount++;
 			}	}	}
 			input.close();
-			System.out.println("v: " +vCount + " vn: " + vnCount + "f: " + fCount);
 		}
 
 		protected int getNumVertices() { return (triangleVerts.size()/3); }
