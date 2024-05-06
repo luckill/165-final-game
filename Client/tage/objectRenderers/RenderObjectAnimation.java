@@ -30,11 +30,11 @@ public class RenderObjectAnimation
 	private Matrix4f vMat = new Matrix4f();  // view matrix
 	private Matrix4f mMat = new Matrix4f();  // model matrix
 	private Matrix4f invTrMat = new Matrix4f(); // inverse-transpose
-	private int mLoc, vLoc, pLoc, nLoc, eLoc, tLoc, lLoc, fLoc, sLoc, cLoc;
+	private int mLoc, vLoc, pLoc, nLoc, eLoc, oLoc, hLoc, tfLoc, tLoc, lLoc, fLoc, sLoc, cLoc;
 	private int globalAmbLoc,mambLoc,mdiffLoc,mspecLoc,mshiLoc;
 	private int skinMatLoc, skinMatITLoc;
-	private int hasSolidColor, hasTex, thisTexture, defaultTexture, tiling, tilingOption;
-	private int isEnvMapped, activeSkyBoxTexture;
+	private int hasSolidColor, hasTex, thisTexture, defaultTexture, tiling, tilingOption, tileFactor, heightMapped;
+	private int isEnvMapped, hasLighting, activeSkyBoxTexture, heightMapTexture;
 
 	/** for engine use only. */
 	public RenderObjectAnimation(Engine e)
@@ -58,10 +58,13 @@ public class RenderObjectAnimation
 		nLoc = gl.glGetUniformLocation(renderingProgram, "norm_matrix");
 		tLoc = gl.glGetUniformLocation(renderingProgram, "has_texture");
 		eLoc = gl.glGetUniformLocation(renderingProgram, "envMapped");
+		oLoc = gl.glGetUniformLocation(renderingProgram, "hasLighting");
 		sLoc = gl.glGetUniformLocation(renderingProgram, "solidColor");
 		cLoc = gl.glGetUniformLocation(renderingProgram, "color");
+		hLoc = gl.glGetUniformLocation(renderingProgram, "heightMapped");
 		lLoc = gl.glGetUniformLocation(renderingProgram, "num_lights");
 		fLoc = gl.glGetUniformLocation(renderingProgram, "fields_per_light");
+		tfLoc = gl.glGetUniformLocation(renderingProgram, "tileCount");
 		globalAmbLoc = gl.glGetUniformLocation(renderingProgram, "globalAmbient");
 		mambLoc = gl.glGetUniformLocation(renderingProgram, "material.ambient");
 		mdiffLoc = gl.glGetUniformLocation(renderingProgram, "material.diffuse");
@@ -74,34 +77,55 @@ public class RenderObjectAnimation
 		mMat.mul(go.getRenderStates().getModelOrientationCorrection());
 		mMat.mul(go.getWorldScale());
 
-		hasTex = 1;
-		hasSolidColor = 0;
+		if ((go.getRenderStates()).hasSolidColor())
+		{	hasSolidColor = 1;
+			hasTex = 0;
+		}
+		else
+		{	hasSolidColor = 0;
+			hasTex = 1;
+		}
+
+		if ((go.getRenderStates()).isEnvironmentMapped())
+			isEnvMapped=1;
+		else
+			isEnvMapped=0;
+
+		if (go.isTerrain())
+			heightMapped = 1;
+		else
+			heightMapped = 0;
+		
+		if (go.getRenderStates().hasLighting())
+			hasLighting = 1;
+		else
+			hasLighting = 0;
 		
 		gl.glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, (engine.getLightManager()).getLightSSBO());
 
-		invTrMat.identity();
-		invTrMat.mul(vMat);
-		invTrMat.mul(mMat);
-		invTrMat.invert(invTrMat);
+		mMat.invert(invTrMat);
 		invTrMat.transpose(invTrMat);
 
 		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
 		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
+		if (go.getTextureImage() != null) hasTex=1; else hasTex=0;
 		gl.glUniform1i(tLoc, hasTex);
+		gl.glUniform1i(eLoc, isEnvMapped);
+		gl.glUniform1i(oLoc, hasLighting);
 		gl.glUniform1i(sLoc, hasSolidColor);
 		gl.glUniform3fv(cLoc, 1, ((go.getRenderStates()).getColor()).get(vals));
+		gl.glUniform1i(hLoc, heightMapped);
+		tileFactor = (go.getRenderStates()).getTileFactor();
+		gl.glUniform1i(tfLoc, tileFactor);
 		gl.glUniform1i(lLoc, (engine.getLightManager()).getNumLights());
 		gl.glUniform1i(fLoc, (engine.getLightManager()).getFieldsPerLight());
-		gl.glUniform4fv(globalAmbLoc, 1, Light.getGlobalAmbient(), 0);
-		gl.glUniform4fv(mambLoc, 1, go.getShape().getMatAmb(), 0);
-		gl.glUniform4fv(mdiffLoc, 1, go.getShape().getMatDif(), 0);
-		gl.glUniform4fv(mspecLoc, 1, go.getShape().getMatSpe(), 0);
-		gl.glUniform1f(mshiLoc, go.getShape().getMatShi());
-
-		if ((go.getRenderStates()).isEnvironmentMapped()) isEnvMapped=1; else isEnvMapped=0;
-		gl.glUniform1i(eLoc, isEnvMapped);
+		gl.glProgramUniform4fv(renderingProgram, globalAmbLoc, 1, Light.getGlobalAmbient(), 0);
+		gl.glProgramUniform4fv(renderingProgram, mambLoc, 1, go.getShape().getMatAmb(), 0);
+		gl.glProgramUniform4fv(renderingProgram, mdiffLoc, 1, go.getShape().getMatDif(), 0);
+		gl.glProgramUniform4fv(renderingProgram, mspecLoc, 1, go.getShape().getMatSpe(), 0);
+		gl.glProgramUniform1f(renderingProgram, mshiLoc, go.getShape().getMatShi());
 		
 		for (int i=0; i<boneCount; i++)
 		{	skinMatLoc = gl.glGetUniformLocation(renderingProgram, "skin_matrices["+i+"]");
@@ -150,12 +174,20 @@ public class RenderObjectAnimation
 		gl.glActiveTexture(GL_TEXTURE1);
 		gl.glBindTexture(GL_TEXTURE_CUBE_MAP, activeSkyBoxTexture);
 
+		heightMapTexture = go.getHeightMap().getTexture();
+		gl.glActiveTexture(GL_TEXTURE2);
+		gl.glBindTexture(GL_TEXTURE_2D, heightMapTexture);
+
+		if (go.getShape().isWindingOrderCCW())
+			gl.glFrontFace(GL_CCW);
+		else
+			gl.glFrontFace(GL_CW);
+
 		if ((go.getRenderStates()).isWireframe())
 			gl.glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		else
 			gl.glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-		gl.glFrontFace(GL_CCW);
 		gl.glEnable(GL_DEPTH_TEST);
 		gl.glDepthFunc(GL_LEQUAL);
 
