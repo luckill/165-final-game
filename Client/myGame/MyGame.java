@@ -1,5 +1,7 @@
 package myGame;
 
+import com.bulletphysics.collision.dispatch.CollisionWorld;
+import com.bulletphysics.dynamics.DiscreteDynamicsWorld;
 import net.java.games.input.Component;
 import tage.*;
 import tage.audio.*;
@@ -22,7 +24,6 @@ import org.joml.*;
 import java.net.InetAddress;
 
 import java.net.UnknownHostException;
-import java.util.Timer;
 
 import tage.networking.IGameConnection.ProtocolType;
 import com.bulletphysics.dynamics.DynamicsWorld;
@@ -38,9 +39,9 @@ public class MyGame extends VariableFrameRateGame
 	private GhostManager gm;
 	private int counter = 0;
 	private double startTime, prevTime, elapsedTime;
-	private GameObject avatar, x, y, z, terrain, groundPlane, grenade, speaker, animatedAvatar;
-	private AnimatedShape humanAnimatedShape, robotAnimatedShape;
-	private ObjShape  line1, line2, line3, humanShape, ghostShape, terrainShape, plane, dolphinShape, grenadeShape, speakerShape;
+	private GameObject avatar, x, y, z, terrain, groundPlane, grenade, speaker, animatedAvatar, gun;
+	private AnimatedShape humanAnimatedShape, gunAnimatedShape;
+	private ObjShape  line1, line2, line3, humanShape, ghostShape, terrainShape, plane, dolphinShape, grenadeShape, speakerShape, gunShape;
 	private TextureImage humanTexture, grass, terrainHeightMap, groundPlaneTexture, grenadeTexture, ghostTexture;
 	private PhysicsEngine physicsEngine;
 	private PhysicsObject grenadeCapsule, physicsPlane;
@@ -55,23 +56,25 @@ public class MyGame extends VariableFrameRateGame
 	private boolean isClientConnected = false;
 	private CameraOrbit3D cameraOrbitController;
 	private IAudioManager audioManager;
-	private Sound explosionSound, backgroundMusic;
+	private Sound explosionSound, backgroundMusic, gunShotSound;
 	private boolean exploded = false;
-	private boolean grenadeCreated = false;
-	private Timer timer;
 	private float[] gravity,up;
 	private double[] tempTransform;
 	private float mass, radius, height;
-	private AudioResource resource;
+	private AudioResource resource1, resource2, resource3;
 
 	private Robot robot;
 	private float currentMouseX, currentMouseY, centerMouseX, centerMouseY;
 	private float previousMouseX, previousMouseY;
 	private boolean isRendering;
 	private Camera camera;
+	private double time, previousTime;
 
 	//testing
 	private boolean stopPrinting = false;
+	private boolean readyToExplode = false;
+	private long throwTime;
+
 	public MyGame(String serverAddress, int serverPort, String protocol)
 	{
 		super();
@@ -101,18 +104,20 @@ public class MyGame extends VariableFrameRateGame
 		line3 = new Line(new Vector3f(0, 0, 0), new Vector3f(0, 0, 100.0f));
 		System.out.println("loading human now");
 		humanShape = new ImportedModel("human.obj");
-		humanAnimatedShape = new AnimatedShape("human.rkm", "human.rks");
-		humanAnimatedShape.loadAnimation("animation", "human.rka");
+		humanAnimatedShape = new AnimatedShape("humanwave.rkm", "humanwave.rks");
+		humanAnimatedShape.loadAnimation("WAVE", "humanwave.rka");
+		humanAnimatedShape.loadAnimation("DEAD", "humanDead.rka");
+
+		gunAnimatedShape = new AnimatedShape("gun.rkm", "gun.rks");
+		gunAnimatedShape.loadAnimation("SWING", "gun_swing.rka");
+
 		ghostShape = humanShape;
 		grenadeShape = new ImportedModel ("grenade.obj");
 		terrainShape = new TerrainPlane(1000);
 		dolphinShape = new ImportedModel("dolphinHighPoly.obj");
 		plane = new Plane();
 		speakerShape = new Cube();
-
-		//robotAnimatedShape = new AnimatedShape("robot.rkm", "robot.rks");
-		//robotAnimatedShape.loadAnimation("WAVE", "robotWave.rka");
-		//robotAnimatedShape.loadAnimation("WALK", "robotWalk.rka");
+		gunShape = new ImportedModel("gun.obj");
 	}
 
 	@Override
@@ -139,22 +144,27 @@ public class MyGame extends VariableFrameRateGame
 	@Override
 	public void loadSounds()
 	{
-
 		audioManager = engine.getAudioManager();
-		resource = audioManager.createAudioResource("assets/sounds/explosionSound.wav", AudioResourceType.AUDIO_SAMPLE);
-		explosionSound = new Sound(resource, SoundType.SOUND_EFFECT, 100, false);
+		resource1 = audioManager.createAudioResource("assets/sounds/explosionSound.wav", AudioResourceType.AUDIO_SAMPLE);
+		explosionSound = new Sound(resource1, SoundType.SOUND_EFFECT, 100, false);
 		explosionSound.initialize(audioManager);
 		explosionSound.setMaxDistance(10.0f);
 		explosionSound.setMinDistance(0.5f);
 		explosionSound.setRollOff(0.05f);
 
-		AudioResource anotherResource;
-		anotherResource = audioManager.createAudioResource("assets/sounds/backgroundMusic.wav", AudioResourceType.AUDIO_STREAM);
-		backgroundMusic = new Sound(anotherResource, SoundType.SOUND_MUSIC, 100, true);
+		resource2 = audioManager.createAudioResource("assets/sounds/backgroundMusic.wav", AudioResourceType.AUDIO_STREAM);
+		backgroundMusic = new Sound(resource2, SoundType.SOUND_MUSIC, 100, true);
 		backgroundMusic.initialize(audioManager);
 		backgroundMusic.setMaxDistance(20.0f);
 		backgroundMusic.setMinDistance(0.5f);
-		backgroundMusic.setRollOff(0.5f);
+		backgroundMusic.setRollOff(0.05f);
+
+		resource3 = audioManager.createAudioResource("assets/sounds/gunShot.wav", AudioResourceType.AUDIO_SAMPLE);
+		gunShotSound = new Sound(resource3, SoundType.SOUND_EFFECT, 100, false);
+		gunShotSound.initialize(audioManager);
+		gunShotSound.setMaxDistance(20.0f);
+		gunShotSound.setMinDistance(0.5f);
+		gunShotSound.setRollOff(0.05f);
 	}
 
 	@Override
@@ -169,22 +179,15 @@ public class MyGame extends VariableFrameRateGame
 		(y.getRenderStates()).setColor(new Vector3f(0f,1f,0f));
 		(z.getRenderStates()).setColor(new Vector3f(0f,0f,1f));
 
-
-		avatar = new GameObject(GameObject.root(), humanShape, humanTexture);
+		avatar = new GameObject(GameObject.root(), humanAnimatedShape, humanTexture);
 		initialTranslation = new Matrix4f().translation(0,0,0);
 		initialRotation = new Matrix4f().rotationY((float)java.lang.Math.toRadians(180.0f));
-		initialScale = (new Matrix4f()).scaling(0.5f, 0.5f, 0.5f);
+		initialScale = (new Matrix4f()).scaling(0.75f);
 		avatar.setLocalTranslation(initialTranslation);
 		avatar.setLocalRotation(initialRotation);
 		avatar.setLocalScale(initialScale);
 		avatar.getRenderStates().setModelOrientationCorrection(new Matrix4f().rotationY((float)Math.toRadians(90.0f)));
 
-		animatedAvatar = new GameObject(GameObject.root(), humanAnimatedShape, humanTexture);
-		animatedAvatar.setLocalRotation(new Matrix4f().rotation(90, new Vector3f(0,0,1)));
-		animatedAvatar.setLocalRotation(new Matrix4f().rotation(90,new Vector3f(1,0,0)));
-		//animatedAvatar.setLocalRotation(new Matrix4f().rotation(90,new Vector3f(0,1,0)));
-		animatedAvatar.setLocalScale(new Matrix4f().scaling(0.5f,0.5f,0.5f));
-		System.out.println("heheheheheeh, i am in the correct place");
 		/*terrain = new GameObject(GameObject.root(), terrainShape, grass);
 		terrain.setLocalTranslation(new Matrix4f().translation(0f,-0.01f,0f));
 		terrain.setLocalScale(new Matrix4f().scaling(500.0f,100.0f,500.0f));
@@ -195,14 +198,18 @@ public class MyGame extends VariableFrameRateGame
 		groundPlane = new GameObject(GameObject.root(), plane, groundPlaneTexture);
 		groundPlane.getRenderStates().setTiling(1);
 		groundPlane.getRenderStates().setTileFactor(12);
-		groundPlane.setLocalScale(new Matrix4f().scaling(10000.0f));
+		groundPlane.setLocalScale(new Matrix4f().scaling(5000));
 
 		speaker = new GameObject(GameObject.root(), speakerShape);
 		speaker.setParent(avatar);
 		speaker.setLocalTranslation(avatar.getWorldTranslation().translate(0,0,-10));
 		speaker.propagateRotation(false);
 
-		//robot = new GameObject(GameObject.root(), robotAnimatedShape);
+		gun = new GameObject(avatar, gunAnimatedShape);
+		gun.setLocalTranslation(new Matrix4f().translate(0,0.75f,2.0f));
+		gun.setLocalScale(new Matrix4f().scaling(0.2f));
+		//gun.getRenderStates().setModelOrientationCorrection(new Matrix4f().rotationY((float)Math.toRadians(0)));
+		gun.applyParentRotationToPosition(true);
 	}
 
 	@Override
@@ -217,19 +224,20 @@ public class MyGame extends VariableFrameRateGame
 	@Override
 	public void initializeGame()
 	{
-		initMouseMode();
+		//initMouseMode();
 		prevTime = System.currentTimeMillis();
 		startTime = System.currentTimeMillis();
 		(engine.getRenderSystem()).setWindowDimensions(1900,1000);
-		//cameraOrbitController = new CameraOrbit3D(engine.getRenderSystem().getViewport("MAIN").getCamera(), avatar, engine);
+		cameraOrbitController = new CameraOrbit3D(engine.getRenderSystem().getViewport("MAIN").getCamera(), avatar, engine);
 
 		// ----------------- INPUTS SECTION -----------------------------
 		setupNetworking();
 		inputManager = engine.getInputManager();
-		//inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.A, new InputAction(avatar, InputType.LEFT, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-		//inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.D, new InputAction(avatar, InputType.RIGHT, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.A, new InputAction(avatar, InputType.LEFT, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.D, new InputAction(avatar, InputType.RIGHT, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.W, new InputAction(avatar,InputType.FORWARD, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.S, new InputAction(avatar, InputType.BACKWARD, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+		inputManager.associateActionWithAllMouse(Component.Identifier.Button.LEFT, new WeaponAction(gunAnimatedShape, gunShotSound), IInputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
 
 		//initialize physics system
 		gravity = new float[]{0.0f, -5.0f, 0.0f};
@@ -249,7 +257,7 @@ public class MyGame extends VariableFrameRateGame
 		groundPlane.setPhysicsObject(physicsPlane);
 
 		//engine.enableGraphicsWorldRender();
-		engine.enablePhysicsWorldRender();
+		//engine.enablePhysicsWorldRender();
 
 		backgroundMusic.setLocation(speaker.getWorldLocation());
 		setEarParameters();
@@ -267,28 +275,26 @@ public class MyGame extends VariableFrameRateGame
 		elapsedTime = System.currentTimeMillis() - prevTime;
 		prevTime = System.currentTimeMillis();
 		float amt = (float) (elapsedTime * 0.03f);
-		//cameraOrbitController.updateCameraPosition();
-		camera = (engine.getRenderSystem().getViewport("MAIN").getCamera());
+		cameraOrbitController.updateCameraPosition();
+		/*camera = (engine.getRenderSystem().getViewport("MAIN").getCamera());
 		Vector3f forwardVector = avatar.getWorldForwardVector();
 		Vector3f upVector = avatar.getWorldUpVector();
 		Vector3f rightVector = avatar.getWorldRightVector();
-		camera.setLocation(avatar.getLocalLocation().add(upVector.mul(2.0f)));
+		camera.setLocation(avatar.getLocalLocation().add(upVector.mul(2.0f)));*/
 
 		//&& running
 		if (grenade == null && running)
 		{
-			System.out.println("avatar location: " + avatar.getWorldLocation().toString());
 			grenade = new GameObject(GameObject.root(), grenadeShape, grenadeTexture);
-			grenade.setLocalLocation(avatar.getWorldLocation().add(0,2,-4));
-
-			System.out.println("grenade location: " + grenade.getWorldLocation().toString());
+			grenade.setLocalLocation(avatar.getWorldLocation());
 			Matrix4f translation = new Matrix4f(grenade.getLocalTranslation());
 			tempTransform = toDoubleArray(translation.get(vals));
 			grenadeCapsule = engine.getSceneGraph().addPhysicsCapsuleX(mass, tempTransform, radius, height);
-			//float[] linearVelocity = {0.0f, 7.0f, -10.0f};
+			//float[] linearVelocity = {1.0f, 7.0f, -10.0f};
 			grenadeCapsule.setBounciness(0.5f);
-			grenadeCapsule.setFriction(70.0f);
-			Vector3f location = avatar.getLocalForwardVector();
+			grenadeCapsule.setFriction(50.0f);
+			Vector3f location = avatar.getWorldForwardVector();
+			System.out.println(location);
 			float[] linearVelocity = new float[3];
 			linearVelocity[0] = location.x() * 10;
 			linearVelocity[1] = 6.0f;
@@ -297,18 +303,31 @@ public class MyGame extends VariableFrameRateGame
 			grenade.setPhysicsObject(grenadeCapsule);
 
 			System.out.println("\n\n\nthrowing grenade now");
+
+			throwTime = System.currentTimeMillis();
+			//System.out.println("throw time = " + throwTime);
 		}
+
 		if (running)
 		{
-			//checkForCollision();
+			int elapsedTime = Math.round((float)(System.currentTimeMillis()-throwTime)/1000.0f);
+			if(elapsedTime == 5)
+			{
+				readyToExplode = true;
+			}
+			//System.out.println(elapsedTime + "second(s)");
+			checkForCollision();
 			float[] velocity = grenadeCapsule.getLinearVelocity();
 
-			double xzVelocity = Math.sqrt(Math.pow(velocity[0],2 ) + Math.pow(velocity[2], 2));
-			if(!stopPrinting)
+			double xzVelocity = Math.sqrt(Math.pow(velocity[0],2) + Math.pow(velocity[2], 2));
+			if(!stopPrinting && readyToExplode)
 			{
-				System.out.println("velocity is " +  xzVelocity);
+				//System.out.println("x linear velocity is: " +  velocity[0] + "z linear velocity is :" + velocity[1]);
+				System.out.println("velocity is: " + xzVelocity);
+				System.out.println("grenade ready to explode");
+				
 			}
-			if(xzVelocity < 1.2f)
+			if(xzVelocity < 1.6f && readyToExplode)
 			{
 				if (!exploded)
 				{
@@ -325,6 +344,7 @@ public class MyGame extends VariableFrameRateGame
 					running = false;
 					exploded = false;
 					stopPrinting = false;
+					readyToExplode = false;
 				}
 			}
 		}
@@ -338,7 +358,7 @@ public class MyGame extends VariableFrameRateGame
         for (GameObject go : engine.getSceneGraph().getGameObjects())
         {
             if (go.getPhysicsObject() != null)
-            { // set translation
+            {
                 mat.set(toFloatArray(go.getPhysicsObject().getTransform()));
                 mat2.set(3, 0, mat.m30());
                 mat2.set(3, 1, mat.m31());
@@ -381,8 +401,10 @@ public class MyGame extends VariableFrameRateGame
 		backgroundMusic.setLocation(speaker.getWorldLocation());
 		setEarParameters();
 
+		gunShotSound.setLocation(gun.getWorldLocation());
 		humanAnimatedShape.updateAnimation();
-		//robotAnimatedShape.updateAnimation();
+		gunAnimatedShape.updateAnimation();
+		engine.getRenderSystem().getShape();
 	}
 
 	public void setEarParameters()
@@ -392,7 +414,7 @@ public class MyGame extends VariableFrameRateGame
 		audioManager.getEar().setOrientation(camera.getN(), new Vector3f(0.0f, 1.0f, 0.0f));
 	}
 
-	public void mouseMoved(MouseEvent mouseEvent)
+	/*public void mouseMoved(MouseEvent mouseEvent)
 	{
 		if(isRendering && centerMouseX == mouseEvent.getXOnScreen() && centerMouseY == mouseEvent.getYOnScreen())
 		{
@@ -438,7 +460,7 @@ public class MyGame extends VariableFrameRateGame
 		avatar.globalYaw(0.01f*tilt);
 		camera.setU(rightVector);
 		camera.setN(fwdVector);
-	}
+	}*/
 
 	private void checkForCollision()
 	{
@@ -462,6 +484,12 @@ public class MyGame extends VariableFrameRateGame
 				}
 			}
 		}
+	}
+
+	// Method to apply damage to the target
+	private void applyDamage(RigidBody targetObject)
+	{
+		// Apply damage logic here
 	}
 
 	private float[] toFloatArray(double[] array)
@@ -494,7 +522,7 @@ public class MyGame extends VariableFrameRateGame
 		return result;
 	}
 
-	private void initMouseMode()
+	/*private void initMouseMode()
 	{
 		RenderSystem renderSystem = engine.getRenderSystem();
 		Viewport viewport = renderSystem.getViewport("MAIN");
@@ -530,7 +558,7 @@ public class MyGame extends VariableFrameRateGame
 		centerMouseY = (int) (bottom - height/2.0f);
 		isRendering = true;
 		robot.mouseMove((int)centerMouseX, (int)centerMouseY);
-	}
+	}*/
 
 	@Override
 	public void keyPressed(KeyEvent e)
@@ -565,18 +593,15 @@ public class MyGame extends VariableFrameRateGame
 				}
 				break;
 			case KeyEvent.VK_7:
-				humanAnimatedShape.playAnimation("animation", 0.5f, AnimatedShape.EndType.LOOP, 0);
+				humanAnimatedShape.playAnimation("WAVE", 0.1f, AnimatedShape.EndType.LOOP, 0);
 				System.out.println("animation is playing");
-				//robotAnimatedShape.stopAnimation();
-				//robotAnimatedShape.playAnimation();
 				break;
-
 			case KeyEvent.VK_8:
-				//robotAnimatedShape.stopAnimation();
-				//robotAnimatedShape.playAnimation();
+				humanAnimatedShape.stopAnimation();
 				break;
-			/*case KeyEvent.VK_9:
-				robotAnimatedShape.stopAnimation();*/
+			case KeyEvent.VK_9:
+				//humanAnimatedShape.playAnimation("DEAD");
+				break;
 		}
 		super.keyPressed(e);
 	}
@@ -603,7 +628,8 @@ public class MyGame extends VariableFrameRateGame
 			e.printStackTrace();
 		}
 		if (protClient == null)
-		{	System.out.println("missing protocol host");
+		{
+			System.out.println("missing protocol host");
 		}
 		else
 		{	// Send the initial join message with a unique identifier for this client
