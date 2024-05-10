@@ -193,4 +193,18 @@ public abstract class JBulletPhysicsObject implements PhysicsObject {
 	public void applyTorque(float fx, float fy, float fz){
 		body.applyTorque(new Vector3f(fx, fy, fz));
 	}
+
+    @Override
+    public boolean equals(Object object)
+    {
+        if (this == object)
+        {
+            return true;
+        }
+        if (!(object instanceof JBulletPhysicsObject that))
+        {
+            return false;
+        }
+        return this.uid == that.uid && Float.compare(getMass(), that.getMass()) == 0;
+    }
 }
