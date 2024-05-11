@@ -120,8 +120,13 @@ public class MyGame extends VariableFrameRateGame
         humanGunAnimatedShape = new AnimatedShape("gun.rkm", "gun.rks");
         humanGunAnimatedShape.loadAnimation("SWING", "gun_swing.rka");
 
-        ghostAnimatedShape = humanAnimatedShape;
-        ghostGunAnimatedShape = humanGunAnimatedShape;
+        ghostAnimatedShape = new AnimatedShape("humanwave.rkm", "humanwave.rks");
+        ghostAnimatedShape.loadAnimation("WAVE", "humanwave.rka");
+        ghostAnimatedShape.loadAnimation("DEAD", "humanDead.rka");
+
+        ghostGunAnimatedShape = new AnimatedShape("gun.rkm", "gun.rks");
+        ghostGunAnimatedShape.loadAnimation("SWING", "gun_swing.rka");
+
         grenadeShape = new ImportedModel("grenade.obj");
         terrainShape = new TerrainPlane(1000);
         plane = new Plane();
@@ -196,10 +201,14 @@ public class MyGame extends VariableFrameRateGame
         avatar.setLocalScale(initialScale);
         avatar.getRenderStates().setModelOrientationCorrection(new Matrix4f().rotationY((float) Math.toRadians(90.0f)));
 
-        Matrix4f avatarTranslation = avatar.getWorldTranslation().translate(0.045f, 1.15f, 0.01f);
+        //
+        Matrix4f avatarTranslation = avatar.getLocalTranslation().translate(0,0.95f,0);
         tempTransform = toDoubleArray(avatarTranslation.get(vals));
-        avatarBox = engine.getSceneGraph().addPhysicsBox(1.0f, tempTransform, new float[]{1.25f, 2.25f, 0.91f}, "");
-
+        avatarBox = engine.getSceneGraph().addPhysicsBox(100000.0f, tempTransform, new float[]{1.25f, 2.50f, 0.91f}, "");
+        avatarBox.setFriction(0.0f);
+        avatarBox.setBounciness(0.0f);
+        gravity = new float[]{0.0f, -5.0f, 0.0f};
+        //avatarBox.applyForce(gravity[0], gravity[1], gravity[2], 0.625f ,1.125f,0.455f);
 
 		/*terrain = new GameObject(GameObject.root(), terrainShape, grass);
 		terrain.setLocalTranslation(new Matrix4f().translation(0f,-0.01f,0f));
@@ -207,7 +216,7 @@ public class MyGame extends VariableFrameRateGame
 		terrain.setHeightMap(terrainHeightMap);
 		terrain.getRenderStates().setTiling(1);
 		terrain.getRenderStates().setTileFactor(10);*/
-        Set<Integer> axisSet = new HashSet<>();
+        /*Set<Integer> axisSet = new HashSet<>();
         Random random = new Random();
         while (axisSet.size() < 8)
         {
@@ -221,7 +230,7 @@ public class MyGame extends VariableFrameRateGame
             tempTransform = toDoubleArray(initialTranslation.get(vals));
             sphere = engine.getSceneGraph().addPhysicsSphere(1.0f, tempTransform, 5.00f);
             spheres.add(sphere);
-        }
+        }*/
 
         groundPlane = new GameObject(GameObject.root(), plane, groundPlaneTexture);
         groundPlane.getRenderStates().setTiling(1);
@@ -264,10 +273,10 @@ public class MyGame extends VariableFrameRateGame
         inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.D, new InputAction(avatar, InputType.RIGHT, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
         inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.W, new InputAction(avatar, InputType.FORWARD, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
         inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.S, new InputAction(avatar, InputType.BACKWARD, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-        inputManager.associateActionWithAllMouse(Component.Identifier.Button.LEFT, new WeaponAction(humanGunAnimatedShape, gunShotSound), IInputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+        inputManager.associateActionWithAllMouse(Component.Identifier.Button.LEFT, new WeaponAction(humanGunAnimatedShape, protClient,gunShotSound), IInputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
 
         //initialize physics system
-        gravity = new float[]{0.0f, -5.0f, 0.0f};
+
         physicsEngine = engine.getSceneGraph().getPhysicsEngine();
         physicsEngine.setGravity(gravity);
 
@@ -301,14 +310,35 @@ public class MyGame extends VariableFrameRateGame
     @Override
     public void update()
     {
+        System.out.println(avatar.getWorldTranslation());
         elapsedTime = System.currentTimeMillis() - prevTime;
         prevTime = System.currentTimeMillis();
-        float amt = (float) (elapsedTime * 0.03f);
         cameraOrbitController.updateCameraPosition();
         //camera = (engine.getRenderSystem().getViewport("MAIN").getCamera());
         Vector3f upVector = avatar.getWorldUpVector();
         //camera.setLocation(avatar.getLocalLocation().add(upVector.mul(2.0f)));
-        avatarBox.setTransform(toDoubleArray(avatar.getWorldTranslation().translate(0.045f, 1.15f, 0.01f).get(vals)));
+        Matrix4f avatarTranslation = avatar.getWorldTranslation().translate(0,0.95f,0);
+        float x = avatarTranslation.get(3,0);
+        float y = avatarTranslation.get(3,1);
+        float z = avatarTranslation.get(3,2);
+        float[] transform = toFloatArray(avatarBox.getTransform());
+
+        transform[12] = x;
+        transform[13] = y;
+        transform[14] = z;
+        //Matrix4f matrix = new Matrix4f();
+        //Matrix4f matrix2 = new Matrix4f();
+        //AxisAngle4f axisAngle = new AxisAngle4f();
+        //matrix2.set(transform);
+
+        //avatar.getWorldRotation().getRotation(axisAngle);
+        //matrix2.rotation(axisAngle);
+        //float[] finalTransform = matrix2.get(vals);
+        avatarBox.setTransform(toDoubleArray(transform));
+
+
+        //tempTransform = toDoubleArray(avatarTranslation.get(vals));
+        //avatarBox.setTransform(tempTransform);
         inputManager.update((float) elapsedTime);
         if (shoot)
         {
@@ -333,7 +363,7 @@ public class MyGame extends VariableFrameRateGame
             {
                 if (checkCollision(entry.getValue(), spheres.get(i), "bullet", ""))
                 {
-                    engine.getSceneGraph().removePhysicsObject(bullet);
+                    engine.getSceneGraph().removePhysicsObject(entry.getValue());
                     //bullet = null;
                     entries.remove();
                 }
@@ -385,7 +415,7 @@ public class MyGame extends VariableFrameRateGame
                 if (grenadeSphere == null && exploded)
                 {
                     tempTransform = toDoubleArray(grenade.getWorldTranslation().translate(0,4,0).get(vals));
-                    grenadeSphere = (engine.getSceneGraph()).addPhysicsSphere(0.0f, tempTransform, 4.0f);
+                    grenadeSphere = (engine.getSceneGraph()).addPhysicsSphere(1000.0f, tempTransform, 4.0f);
                     grenadeSphere.setLinearVelocity(new float[]{0, 0, 0});
                     grenadeSphere.setBounciness(0f);
                     grenadeSphere.setFriction(30f);
@@ -740,11 +770,15 @@ public class MyGame extends VariableFrameRateGame
 
     // ---------- NETWORKING SECTION ----------------
 
-    public ObjShape getGhostShape()
+    public AnimatedShape getGhostShape()
     {
         return ghostAnimatedShape;
     }
 
+    public AnimatedShape getGhostGunShape()
+    {
+        return ghostGunAnimatedShape;
+    }
     public TextureImage getGhostTexture()
     {
         return ghostTexture;
