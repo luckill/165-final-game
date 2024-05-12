@@ -36,6 +36,31 @@ public final class AnimatedShape extends ObjShape
 		PAUSE,   // Freezes the animation at the last frame
 		LOOP,    // Restarts the animation from the first frame
 		PINGPONG // Plays the animation in reverse from the current frame
+		;
+
+		public static EndType chooseAnimationEndType(String messageToken)
+		{
+			if(messageToken.equals("stop"))
+			{
+				return STOP;
+			}
+			else if (messageToken.equals("pause"))
+			{
+				return PAUSE;
+			}
+			else if (messageToken.equals("loop"))
+			{
+				return LOOP;
+			}
+			else if(messageToken.equals("pingpong"))
+			{
+				return PINGPONG;
+			}
+			else
+			{
+				return NONE;
+			}
+		}
 	}
 	
 	private int vertCount;
