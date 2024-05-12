@@ -1,4 +1,6 @@
 package myGame;
+import myGame.InputType;
+import myGame.ProtocolClient;
 import net.java.games.input.Event;
 import tage.GameObject;
 import tage.input.action.AbstractInputAction;
@@ -60,10 +62,12 @@ public class InputAction extends AbstractInputAction
                     if (event.getValue() < 0)
                     {
                         object.globalYaw((float) elapsedTime*2);
+                        protocolClient.sendRotateMessage((float) elapsedTime*2);
                     }
                     else
                     {
                         object.globalYaw((float) -elapsedTime*2);
+                        protocolClient.sendRotateMessage((float) -elapsedTime*2);
                     }
                 }
                 break;
@@ -80,12 +84,16 @@ public class InputAction extends AbstractInputAction
                         speed = (float) elapsedTime * 20;
                         object.moveForwardOrBackward(speed);
                         protocolClient.sendMoveMessage(object.getWorldLocation());
+                        protocolClient.sendMoveMessage(object.getWorldLocation());
+
                     }
                     else
                     {
                         speed = (float) -elapsedTime * 20;
                         object.moveForwardOrBackward(speed);
                         protocolClient.sendMoveMessage(object.getWorldLocation());
+                        protocolClient.sendMoveMessage(object.getWorldLocation());
+
                     }
                 }
                 break;
