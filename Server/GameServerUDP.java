@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import tage.networking.server.GameConnectionServer;
 import tage.networking.server.IClientInfo;
+import tage.shapes.AnimatedShape;
 
 public class GameServerUDP extends GameConnectionServer<UUID>
 {
@@ -31,7 +32,10 @@ public class GameServerUDP extends GameConnectionServer<UUID>
                     UUID clientID = UUID.fromString(messageTokens[1]);
                     addClient(ci, clientID);
                     System.out.println("Join request received from - " + clientID.toString());
-                    sendJoinedMessage(clientID, true);
+                    System.out.println();
+                    System.out.println();
+                    String texturePath  = messageTokens[2];
+                    sendJoinedMessage(clientID, texturePath, true);
                 } catch (IOException e)
                 {
                     e.printStackTrace();
@@ -54,7 +58,8 @@ public class GameServerUDP extends GameConnectionServer<UUID>
             {
                 UUID clientID = UUID.fromString(messageTokens[1]);
                 String[] pos = {messageTokens[2], messageTokens[3], messageTokens[4]};
-                sendCreateMessages(clientID, pos);
+                String texturePath = messageTokens[5];
+                sendCreateMessages(clientID, pos, texturePath);
                 sendWantsDetailsMessages(clientID);
             }
 
@@ -65,7 +70,8 @@ public class GameServerUDP extends GameConnectionServer<UUID>
                 UUID clientID = UUID.fromString(messageTokens[1]);
                 UUID remoteID = UUID.fromString(messageTokens[2]);
                 String[] pos = {messageTokens[3], messageTokens[4], messageTokens[5]};
-                sendDetailsForMessage(clientID, remoteID, pos);
+                String texturePath = messageTokens[6];
+                sendDetailsForMessage(clientID, remoteID, pos, texturePath);
             }
 
             // MOVE --- Case where server receives a move message
@@ -83,6 +89,17 @@ public class GameServerUDP extends GameConnectionServer<UUID>
                 String angle = messageTokens[2];
                 sendRotateMessage(clientID, angle);
             }
+
+            if (messageTokens[0].compareTo("playAnimation") == 0)
+            {
+                UUID clientID = UUID.fromString(messageTokens[1]);
+                String animationShapeType = messageTokens[2];
+                String name = messageTokens[3];
+                float speed = Float.parseFloat(messageTokens[4]);
+                String endType = messageTokens[5];
+                int end = Integer.parseInt(messageTokens[6]);
+                sendAnimationMessage(clientID,animationShapeType,name,speed,endType,end);
+            }
         }
     }
 
@@ -90,16 +107,22 @@ public class GameServerUDP extends GameConnectionServer<UUID>
     // request was able to be granted.
     // Message Format: (join,success) or (join,failure)
 
-    public void sendJoinedMessage(UUID clientID, boolean success)
+    public void sendJoinedMessage(UUID clientID, String texturePath, boolean success)
     {
         try
         {
             System.out.println("trying to confirm join");
             String message = new String("join,");
             if (success)
+            {
                 message += "success";
+                message += "," + texturePath;
+            }
             else
+            {
                 message += "failure";
+            }
+            System.out.println(message);
             sendPacket(message, clientID);
         } catch (IOException e)
         {
@@ -131,7 +154,7 @@ public class GameServerUDP extends GameConnectionServer<UUID>
     // connected to the server.
     // Message Format: (create,remoteId,x,y,z) where x, y, and z represent the position
 
-    public void sendCreateMessages(UUID clientID, String[] position)
+    public void sendCreateMessages(UUID clientID, String[] position, String texturePath)
     {
         try
         {
@@ -139,6 +162,7 @@ public class GameServerUDP extends GameConnectionServer<UUID>
             message += "," + position[0];
             message += "," + position[1];
             message += "," + position[2];
+            message += "," + texturePath;
             forwardPacketToAll(message, clientID);
         } catch (IOException e)
         {
@@ -152,7 +176,7 @@ public class GameServerUDP extends GameConnectionServer<UUID>
     // remoteId is used to send this message to the proper client.
     // Message Format: (dsfr,remoteId,x,y,z) where x, y, and z represent the position.
 
-    public void sendDetailsForMessage(UUID clientID, UUID remoteId, String[] position)
+    public void sendDetailsForMessage(UUID clientID, UUID remoteId, String[] position, String texturePath)
     {
         try
         {
@@ -160,6 +184,7 @@ public class GameServerUDP extends GameConnectionServer<UUID>
             message += "," + position[0];
             message += "," + position[1];
             message += "," + position[2];
+            message += "," + texturePath;
             sendPacket(message, clientID);
         } catch (IOException e)
         {
@@ -210,6 +235,24 @@ public class GameServerUDP extends GameConnectionServer<UUID>
         {
             String message = "rotate," + clientID.toString();
             message += "," + angle;
+            forwardPacketToAll(message, clientID);
+        } catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    public void sendAnimationMessage(UUID clientID, String name, String animationShapeType, float speed, String endType, int end)
+    {
+        try
+        {
+            String message = "playAnimation," + clientID.toString();
+            message += "," + animationShapeType;
+            message += "," + name;
+            message += "," + speed;
+            message += "," + endType;
+            message += "," + end;
+
             forwardPacketToAll(message, clientID);
         } catch (IOException e)
         {

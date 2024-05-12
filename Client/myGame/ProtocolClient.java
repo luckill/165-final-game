@@ -1,16 +1,14 @@
 package myGame;
 
-import java.awt.Color;
 import java.io.IOException;
 import java.net.InetAddress;
-import java.util.Iterator;
 import java.util.UUID;
-import java.util.Vector;
 
 import org.joml.*;
 
-import tage.*;
+import tage.DisplaySettingsDialog;
 import tage.networking.client.GameConnectionClient;
+import tage.shapes.AnimatedShape;
 
 public class ProtocolClient extends GameConnectionClient {
     private MyGame game;
@@ -38,11 +36,13 @@ public class ProtocolClient extends GameConnectionClient {
         if (messageTokens.length > 0) {
             // Handle JOIN message
             // Format: (join,success) or (join,failure)
-            if (messageTokens[0].compareTo("join") == 0) {
+            if (messageTokens[0].compareTo("join") == 0)
+            {
                 if (messageTokens[1].compareTo("success") == 0) {
                     System.out.println("join success confirmed");
                     game.setIsConnected(true);
-                    sendCreateMessage(game.getPlayerPosition());
+                    String texturePath = messageTokens[2];
+                    sendCreateMessage(game.getPlayerPosition(), texturePath);
                 }
                 if (messageTokens[1].compareTo("failure") == 0) {
                     System.out.println("join failure confirmed");
@@ -63,6 +63,7 @@ public class ProtocolClient extends GameConnectionClient {
             // AND
             // Handle DETAILS_FOR message
             // Format: (dsfr,remoteId,x,y,z)
+            //
             if (messageTokens[0].compareTo("create") == 0 || (messageTokens[0].compareTo("dsfr") == 0)) {    // create a new ghost avatar
                 // Parse out the id into a UUID
                 UUID ghostID = UUID.fromString(messageTokens[1]);
@@ -72,10 +73,14 @@ public class ProtocolClient extends GameConnectionClient {
                         Float.parseFloat(messageTokens[2]),
                         Float.parseFloat(messageTokens[3]),
                         Float.parseFloat(messageTokens[4]));
+                String texturePath = messageTokens[5];
 
-                try {
-                    ghostManager.createGhostAvatar(ghostID, ghostPosition);
-                } catch (IOException e) {
+                try
+                {
+                    ghostManager.createGhostAvatar(ghostID, ghostPosition, texturePath);
+                }
+                catch (IOException e)
+                {
                     System.out.println("error creating ghost avatar");
                 }
             }
@@ -86,7 +91,7 @@ public class ProtocolClient extends GameConnectionClient {
                 // Send the local client's avatar's information
                 // Parse out the id into a UUID
                 UUID ghostID = UUID.fromString(messageTokens[1]);
-                sendDetailsForMessage(ghostID, game.getPlayerPosition());
+                sendDetailsForMessage(ghostID, game.getPlayerPosition(), game.getPlayerTexturePath());
             }
 
             // Handle MOVE message
@@ -107,7 +112,8 @@ public class ProtocolClient extends GameConnectionClient {
 
 			// Handle ROTATE message
 			// Format: (move,remoteId,x,y,z)
-			if (messageTokens[0].compareTo("rotate") == 0) {
+			if (messageTokens[0].compareTo("rotate") == 0)
+            {
 				// move a ghost avatar
 				// Parse out the id into a UUID
 				UUID ghostID = UUID.fromString(messageTokens[1]);
@@ -115,6 +121,18 @@ public class ProtocolClient extends GameConnectionClient {
 
 				ghostManager.rotateGhostAvatar(ghostID, angle);
 			}
+
+            //handle playAnimation message
+            if (messageTokens[0].compareTo("playAnimation") == 0)
+            {
+                UUID ghostID = UUID.fromString(messageTokens[1]);
+                String animationShapeType = messageTokens[2];
+                String name = messageTokens[3];
+                float speed = Float.parseFloat(messageTokens[4]);
+                AnimatedShape.EndType endType = AnimatedShape.EndType.chooseAnimationEndType(messageTokens[5]);
+                int end = Integer.parseInt(messageTokens[6]);
+                ghostManager.playAnimation(ghostID, animationShapeType, name, speed, endType, end);
+            }
         }
     }
 
@@ -123,9 +141,13 @@ public class ProtocolClient extends GameConnectionClient {
     // a random UUID.
     // Message Format: (join,localId)
 
-    public void sendJoinMessage() {
-        try {
-            sendPacket(new String("join," + id.toString()));
+    public void sendJoinMessage(String texturePath)
+    {
+        try
+        {
+            String message = "join," + id.toString();
+            message += "," + texturePath;
+            sendPacket(message);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -147,12 +169,15 @@ public class ProtocolClient extends GameConnectionClient {
     // with the server.
     // Message Format: (create,localId,x,y,z) where x, y, and z represent the position
 
-    public void sendCreateMessage(Vector3f position) {
-        try {
-            String message = new String("create," + id.toString());
+    public void sendCreateMessage(Vector3f position, String texturePath)
+    {
+        try
+        {
+            String message = "create," + id.toString();
             message += "," + position.x();
             message += "," + position.y();
             message += "," + position.z();
+            message += "," + texturePath;
 
             sendPacket(message);
         } catch (IOException e) {
@@ -166,12 +191,14 @@ public class ProtocolClient extends GameConnectionClient {
     // from the server.
     // Message Format: (dsfr,remoteId,localId,x,y,z) where x, y, and z represent the position.
 
-    public void sendDetailsForMessage(UUID remoteId, Vector3f position) {
+    public void sendDetailsForMessage(UUID remoteId, Vector3f position, String texturePath)
+    {
         try {
             String message = new String("dsfr," + remoteId.toString() + "," + id.toString());
             message += "," + position.x();
             message += "," + position.y();
             message += "," + position.z();
+            message += "," + texturePath;
 
             sendPacket(message);
         } catch (IOException e) {
@@ -211,4 +238,23 @@ public class ProtocolClient extends GameConnectionClient {
 			e.printStackTrace();
 		}
 	}
+
+    //humanAnimatedShape.playAnimation("WAVE", 0.1f, AnimatedShape.EndType.LOOP, 0);
+    public void sendAnimationMessage(String name, String animationShapeType, float speed, String endType, int end)
+    {
+        try
+        {
+            String message = "playAnimation," + id.toString();
+            message += "," + animationShapeType;
+            message += "," + name;
+            message += "," + speed;
+            message += "," + endType;
+            message += "," + end;
+
+            sendPacket(message);
+        } catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
 }
