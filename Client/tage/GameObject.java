@@ -151,7 +151,6 @@ public class GameObject
 
 	// ---------------------------------------------------
 
-	//public void localPich
 	/** returns a reference to the ObjShape associated with this GameObject */
 	public ObjShape getShape() { return shape; }
 
@@ -282,14 +281,6 @@ public class GameObject
 	public void globalYaw(float scalar)
 	{
 		this.setLocalRotation(this.getWorldRotation().mul(new Matrix4f().rotate(scalar, 0,1,0)));
-	}
-
-	/**
-	 * rotate the object along its local right axis
-	 * */
-	public void localPitch(float scalar)
-	{
-		this.setLocalRotation(new Matrix4f().rotate(scalar, this.getLocalRightVector()).mul(this.getWorldRotation()));
 	}
 
 	/**
