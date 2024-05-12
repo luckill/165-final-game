@@ -3,6 +3,7 @@ package tage;
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
+import java.util.Objects;
 import java.util.Vector;
 import javax.swing.border.*;
 
@@ -37,15 +38,16 @@ import javax.swing.border.*;
 @SuppressWarnings("unchecked")
 public class DisplaySettingsDialog extends JDialog implements ActionListener
 {
- 	private boolean useFullScreen = false;			//the current user FSEM selection
+	private boolean useFullScreen = false;			//the current user FSEM selection
 	private DisplayMode selectedDisplayMode = null;		//the current user DisplayMode selection
 	private GraphicsDevice device ;				//the current default graphics device
 
-  	private JRadioButton windowedModeRadioButton;
-  	private JRadioButton fullScreenModeRadioButton;
-  	private JComboBox displayModeComboBox ;
-  	private JLabel currentResolutionLabel;
-
+	private JRadioButton windowedModeRadioButton;
+	private JRadioButton fullScreenModeRadioButton;
+	private JComboBox displayModeComboBox ;
+	private JComboBox textureOptionComboBox;
+	private JLabel currentResolutionLabel;
+    public static String texturePath = "";
 	/**
 	 * Creates a DisplaySettingsDialog for the specified GraphicsDevice and
 	 * allows the user to choose desired display mode values.
@@ -59,7 +61,7 @@ public class DisplaySettingsDialog extends JDialog implements ActionListener
 	public DisplaySettingsDialog (GraphicsDevice theDevice)
 	{
 		setTitle("Choose Display Settings");
-		setSize(450, 200);
+		setSize(700, 200);
 		setLocation (200,200);
 		setResizable(true);
 		device = theDevice;
@@ -75,8 +77,8 @@ public class DisplaySettingsDialog extends JDialog implements ActionListener
 
 		//add a top panel showing the currently active screen resolution
 		JPanel topPanel = new JPanel();
-			currentResolutionLabel = new JLabel("Current Resolution: unknown");
-			topPanel.add(currentResolutionLabel);
+		currentResolutionLabel = new JLabel("Current Resolution: unknown");
+		topPanel.add(currentResolutionLabel);
 		this.add(topPanel, "North");
 
 		//add a bottom panel containing control buttons (OK, Cancel)
@@ -90,6 +92,7 @@ public class DisplaySettingsDialog extends JDialog implements ActionListener
 		newButton.setActionCommand( "Cancel" );
 		newButton.addActionListener(this);
 		buttonPanel.add(newButton);
+
 		this.add(buttonPanel, "South");
 
 		//add a left panel with a radio button group for selecting full or windowed screen mode
@@ -125,6 +128,35 @@ public class DisplaySettingsDialog extends JDialog implements ActionListener
 		displayModesPanel.add (displayModeComboBox);
 
 		this.add(displayModesPanel, "East");
+
+		JPanel textureOptionPanel = new JPanel();
+		textureOptionPanel.setBorder(new TitledBorder("choose texture; "));
+		String[] textureOptions = {"Texture Option 1 - regular avatar texture", "Texture Option 2 - uv checker map", "Texture Option 3 - brick image"};
+		textureOptionComboBox = new JComboBox<>(textureOptions);
+		textureOptionPanel.add (textureOptionComboBox);
+		this.add(textureOptionPanel, BorderLayout.CENTER);
+		textureOptionComboBox.addActionListener(new ActionListener()
+		{
+			public void actionPerformed(ActionEvent e)
+			{
+				// Get the selected texture option
+				String selectedTextureOption = (String) textureOptionComboBox.getSelectedItem();
+
+				// Set the variable based on the selected texture option
+				if (selectedTextureOption.equals("Texture Option 1 - regular avatar texture"))
+				{
+                    texturePath = "human.png";
+				}
+				else if (selectedTextureOption.equals("Texture Option 2 - uv checker map"))
+				{
+                    texturePath = "uv checker.png";
+				}
+				else if (selectedTextureOption.equals("Texture Option 3 - brick image"))
+				{
+                    texturePath = "brick1.jpg";
+				}
+			}
+		});
 	}
 
 	private Vector<String> getDisplayModeList(DisplayMode [] modes)
@@ -145,7 +177,7 @@ public class DisplaySettingsDialog extends JDialog implements ActionListener
 			// width/height, depth, and rate fields, and that the depth and rate numeric
 			// values are terminated with a '-'.
 			String s = "" + width + "x" + height + ", " + depth + "-bit color, "
-							+ rate + "-Hz refresh rate" ;
+				+ rate + "-Hz refresh rate" ;
 			displayList.addElement (s);
 		}
 
@@ -180,7 +212,7 @@ public class DisplaySettingsDialog extends JDialog implements ActionListener
 		int refreshRate = curMode.getRefreshRate();
 
 		currentResolutionLabel.setText("Current Resolution:  " + width + "x" + height
-						+ ", " + depth + "-bits, " + refreshRate + "-Hz " );
+			+ ", " + depth + "-bits, " + refreshRate + "-Hz " );
 
 		//set the combo box so the current actual resolution is selected by default
 		displayModeComboBox.setSelectedIndex(getComboBoxIndexOf(curMode));
@@ -199,9 +231,9 @@ public class DisplaySettingsDialog extends JDialog implements ActionListener
 		if (selectedDisplayMode != null)
 		{
 			copy = new DisplayMode (selectedDisplayMode.getWidth(),
-						selectedDisplayMode.getHeight(),
-						selectedDisplayMode.getBitDepth(),
-						selectedDisplayMode.getRefreshRate());
+				selectedDisplayMode.getHeight(),
+				selectedDisplayMode.getBitDepth(),
+				selectedDisplayMode.getRefreshRate());
 		}
 		return copy;
 	}
@@ -297,9 +329,9 @@ public class DisplaySettingsDialog extends JDialog implements ActionListener
 
 		//create and return a DisplayMode object describing the selected mode
 		DisplayMode mode = new DisplayMode (Integer.valueOf(widthString),
-							Integer.valueOf(heightString),
-							Integer.valueOf(depthString),
-							Integer.valueOf(refreshRateString) );
+			Integer.valueOf(heightString),
+			Integer.valueOf(depthString),
+			Integer.valueOf(refreshRateString) );
 		return mode ;
 	}
 
@@ -311,8 +343,8 @@ public class DisplaySettingsDialog extends JDialog implements ActionListener
 	 * In either event the dialog is hidden afterwards.
 	 */
 	public void actionPerformed(ActionEvent e)
-  	{
-		if (e.getActionCommand() == "OK")
+	{
+		if (Objects.equals(e.getActionCommand(), "OK"))
 		{
 			//fetch the string defining the mode selected by the user
 			String selectedModeString = (String) displayModeComboBox.getSelectedItem();
@@ -326,11 +358,11 @@ public class DisplaySettingsDialog extends JDialog implements ActionListener
 			//System.out.println ("OK pressed");
 		}
 
-      		else if (e.getActionCommand() == "Cancel")
-      		{
+		else if (Objects.equals(e.getActionCommand(), "Cancel"))
+		{
 			//System.out.println ("Cancel pressed");
-  		}
+		}
 
-      		setVisible(false);
-  	}
+		setVisible(false);
+	}
 }
