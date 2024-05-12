@@ -33,6 +33,9 @@ import com.bulletphysics.collision.narrowphase.ManifoldPoint;
 
 public class MyGame extends VariableFrameRateGame
 {
+    public static final float[] ambient = { 0.3f, 0.3f, 0.3f, 1.0f };
+    public static final float[] diffuse = { 0.8f, 0.8f, 0.8f, 1.0f };
+    public static final float[] specular = { 1.0f, 1.0f, 1.0f, 1.0f };
     private static Engine engine;
     private InputManager inputManager;
     private GhostManager gm;
@@ -41,11 +44,11 @@ public class MyGame extends VariableFrameRateGame
     private GameObject avatar, x, y, z, terrain, groundPlane, grenade, speaker, animatedAvatar, gun, target;
     private AnimatedShape humanAnimatedShape, humanGunAnimatedShape, ghostAnimatedShape, ghostGunAnimatedShape;
 
-    private ObjShape line1, line2, line3, ghostGunShape, terrainShape, plane, grenadeShape, speakerShape;
+    private ObjShape line1, line2, line3, ghostGunShape, terrainShape, plane, grenadeShape, speakerShape, sphere;
 
-    private TextureImage humanTexture, grass, terrainHeightMap, groundPlaneTexture, grenadeTexture, ghostTexture;
+    private TextureImage humanTexture, grass, terrainHeightMap, groundPlaneTexture, grenadeTexture, ghostTexture, uvCheckerMap, brick;
     private PhysicsEngine physicsEngine;
-    private PhysicsObject grenadeCapsule, physicsPlane, bullet, sphere, avatarBox, grenadeSphere;
+    private PhysicsObject grenadeCapsule, physicsPlane, bullet, spherePhysicsObject, avatarBox, grenadeSphere;
     private boolean running = false;
     private float vals[] = new float[16];
     private Light light;
@@ -72,6 +75,7 @@ public class MyGame extends VariableFrameRateGame
     private boolean isRendering;
     private Camera camera;
     private double time, previousTime;
+    private String temp = "";
 
     //testing
     private boolean stopPrinting = false;
@@ -83,11 +87,14 @@ public class MyGame extends VariableFrameRateGame
     private ArrayList<PhysicsObject> spheres = new ArrayList<>();
     private float[] velocity;
     private double xzVelocity;
-    private Timer timer;
+    private String path;
+    public static HashMap<String, TextureImage> textureMap = new HashMap<>();
+    public static boolean turnLightOff = false;
 
     public MyGame(String serverAddress, int serverPort, String protocol)
     {
         super();
+
         gm = new GhostManager(this);
         this.serverAddress = serverAddress;
         this.serverPort = serverPort;
@@ -131,27 +138,33 @@ public class MyGame extends VariableFrameRateGame
         terrainShape = new TerrainPlane(1000);
         plane = new Plane();
         speakerShape = new Cube();
+        sphere = new Sphere();
     }
 
     @Override
     public void loadSkyBoxes()
     {
-        fps = engine.getSceneGraph().loadCubeMap("fps");
         desert = engine.getSceneGraph().loadCubeMap("desert");
-        volcano = engine.getSceneGraph().loadCubeMap("volcano");
-        engine.getSceneGraph().setActiveSkyBoxTexture(fps);
+        engine.getSceneGraph().setActiveSkyBoxTexture(desert);
         engine.getSceneGraph().setSkyBoxEnabled(true);
     }
 
     @Override
     public void loadTextures()
     {
-        humanTexture = new TextureImage("humanUvUnwrap_colored.png");
         grass = new TextureImage("grass.jpg");
         terrainHeightMap = new TextureImage("HeightMap.png");
-        groundPlaneTexture = new TextureImage("ground plane.png");
+        groundPlaneTexture = new TextureImage("grass.jpg");
         grenadeTexture = new TextureImage("grenade.png");
-        ghostTexture = humanTexture;
+        uvCheckerMap = new TextureImage("uv checker.png");
+        brick = new TextureImage("brick1.jpg");
+        humanTexture = new TextureImage("human.png");
+        textureMap.put("human.png", humanTexture);
+        textureMap.put("uv checker.png", uvCheckerMap);
+        textureMap.put("brick1.jpg", brick);
+        System.out.println("Texture path selected: " + DisplaySettingsDialog.texturePath);
+        path = DisplaySettingsDialog.texturePath;
+        humanTexture = textureMap.get(path);
     }
 
     @Override
@@ -201,36 +214,21 @@ public class MyGame extends VariableFrameRateGame
         avatar.setLocalScale(initialScale);
         avatar.getRenderStates().setModelOrientationCorrection(new Matrix4f().rotationY((float) Math.toRadians(90.0f)));
 
-        //
+
         Matrix4f avatarTranslation = avatar.getLocalTranslation().translate(0,0.95f,0);
         tempTransform = toDoubleArray(avatarTranslation.get(vals));
-        avatarBox = engine.getSceneGraph().addPhysicsBox(100000.0f, tempTransform, new float[]{1.25f, 2.50f, 0.91f}, "");
+        avatarBox = engine.getSceneGraph().addPhysicsBox(100000.0f, tempTransform, new float[]{1.25f, 2.50f, 0.91f});
         avatarBox.setFriction(0.0f);
         avatarBox.setBounciness(0.0f);
         gravity = new float[]{0.0f, -5.0f, 0.0f};
         //avatarBox.applyForce(gravity[0], gravity[1], gravity[2], 0.625f ,1.125f,0.455f);
 
-		/*terrain = new GameObject(GameObject.root(), terrainShape, grass);
+		terrain = new GameObject(GameObject.root(), terrainShape, grass);
 		terrain.setLocalTranslation(new Matrix4f().translation(0f,-0.01f,0f));
 		terrain.setLocalScale(new Matrix4f().scaling(500.0f,100.0f,500.0f));
 		terrain.setHeightMap(terrainHeightMap);
 		terrain.getRenderStates().setTiling(1);
-		terrain.getRenderStates().setTileFactor(10);*/
-        /*Set<Integer> axisSet = new HashSet<>();
-        Random random = new Random();
-        while (axisSet.size() < 8)
-        {
-            axisSet.add(random.nextInt(51) + 20);
-        }
-
-        Iterator<Integer> iterator = axisSet.iterator();
-        for (int i = 0; i < 4; i++)
-        {
-            initialTranslation = (new Matrix4f()).translation(iterator.next(), 0, iterator.next());
-            tempTransform = toDoubleArray(initialTranslation.get(vals));
-            sphere = engine.getSceneGraph().addPhysicsSphere(1.0f, tempTransform, 5.00f);
-            spheres.add(sphere);
-        }*/
+		terrain.getRenderStates().setTileFactor(10);
 
         groundPlane = new GameObject(GameObject.root(), plane, groundPlaneTexture);
         groundPlane.getRenderStates().setTiling(1);
@@ -255,12 +253,19 @@ public class MyGame extends VariableFrameRateGame
         Light.setGlobalAmbient(.5f, .5f, .5f);
         light = new Light();
         light.setLocation(new Vector3f(0f, 5f, 0f));
+        engine.getSceneGraph().addLight(light);
+
+        light = new Light();
+        light.setLocation(new Vector3f(0.0f,2.0f, -5.0f));
         (engine.getSceneGraph()).addLight(light);
     }
 
     @Override
     public void initializeGame()
     {
+        Scanner scanner = new Scanner(System.in);
+
+        // Close the scanner
         //initMouseMode();
         prevTime = System.currentTimeMillis();
         startTime = System.currentTimeMillis();
@@ -274,7 +279,11 @@ public class MyGame extends VariableFrameRateGame
         inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.W, new InputAction(avatar, InputType.FORWARD, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
         inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.S, new InputAction(avatar, InputType.BACKWARD, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
         inputManager.associateActionWithAllMouse(Component.Identifier.Button.LEFT, new WeaponAction(humanGunAnimatedShape, protClient,gunShotSound), IInputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+        inputManager.associateActionWithAllKeyboards(Component.Identifier.Key._6, new LightAction(engine, LightActionType.OFF), IInputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+        inputManager.associateActionWithAllKeyboards(Component.Identifier.Key._8, new LightAction(engine, LightActionType.ON), IInputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
 
+        inputManager.associateActionWithAllGamepads(Component.Identifier.Axis.X, new InputAction(avatar, InputType.GLOBAL_YAW_CONTROLLER, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+        inputManager.associateActionWithAllGamepads(Component.Identifier.Axis.Y, new InputAction(avatar, InputType.MOVE_FORWARD_OR_BACKWARD_CONTROLLER, protClient), IInputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
         //initialize physics system
 
         physicsEngine = engine.getSceneGraph().getPhysicsEngine();
@@ -291,7 +300,6 @@ public class MyGame extends VariableFrameRateGame
         physicsPlane = engine.getSceneGraph().addPhysicsStaticPlane(tempTransform, up, 0.0f);
         physicsPlane.setBounciness(1.0f);
         groundPlane.setPhysicsObject(physicsPlane);
-
 
         engine.enableGraphicsWorldRender();
         engine.enablePhysicsWorldRender();
@@ -310,13 +318,23 @@ public class MyGame extends VariableFrameRateGame
     @Override
     public void update()
     {
-        System.out.println(avatar.getWorldTranslation());
+        LightManager manager = engine.getLightManager();
+        Light light = manager.getLight(1);
+        light.setLocation(avatar.getWorldLocation().add(0,2,-5));
+        if (exploded)
+        {
+            Light.setGlobalAmbient(1,1,1);
+        }
+        else
+        {
+            Light.setGlobalAmbient(.5f, .5f, .5f);
+        }
         elapsedTime = System.currentTimeMillis() - prevTime;
         prevTime = System.currentTimeMillis();
         cameraOrbitController.updateCameraPosition();
         //camera = (engine.getRenderSystem().getViewport("MAIN").getCamera());
-        Vector3f upVector = avatar.getWorldUpVector();
-        //camera.setLocation(avatar.getLocalLocation().add(upVector.mul(2.0f)));
+        //Vector3f upVector = avatar.getWorldUpVector();
+        //camera.setLocation(avatar.getLocalLocation().add(upVector.mul(2.0f)).add(0,0,-1));
         Matrix4f avatarTranslation = avatar.getWorldTranslation().translate(0,0.95f,0);
         float x = avatarTranslation.get(3,0);
         float y = avatarTranslation.get(3,1);
@@ -473,16 +491,17 @@ public class MyGame extends VariableFrameRateGame
                 go.setLocalRotation(mat3);
             }
         }
-
-        //float height = terrain.getHeight(loc.x(), loc.z());
-        //avatar.setLocalLocation(new Vector3f(loc.x(), height + 0.25f, loc.z()));
+        //Vector3f location = avatar.getWorldLocation();
+        //float height = terrain.getHeight(location.x(), location.z());
+        //avatar.setLocalLocation(new Vector3f(location.x(), height + 0.25f, location.z()));
 
         // build and set HUD
         int elapsTimeSec = Math.round((float) (System.currentTimeMillis() - startTime) / 1000.0f);
         String elapsTimeStr = Integer.toString(elapsTimeSec);
         String counterStr = Integer.toString(counter);
         String dispStr1 = "Time = " + elapsTimeStr;
-        String dispStr2 = "avatar position = " + avatar.getWorldLocation();
+        //String dispStr2 = "avatar position = " + avatar.getWorldLocation();
+        String dispStr2 = temp;
         Vector3f hud1Color = new Vector3f(1, 0, 0);
         Vector3f hud2Color = new Vector3f(1, 1, 1);
         (engine.getHUDmanager()).setHUD1(dispStr1, hud1Color, 15, 15);
@@ -516,7 +535,7 @@ public class MyGame extends VariableFrameRateGame
         audioManager.getEar().setOrientation(camera.getN(), new Vector3f(0.0f, 1.0f, 0.0f));
     }
 
-    private float[] toFloatArray(double[] array)
+    public float[] toFloatArray(double[] array)
     {
         if (array == null)
         {
@@ -531,7 +550,7 @@ public class MyGame extends VariableFrameRateGame
         return result;
     }
 
-    private double[] toDoubleArray(float[] array)
+    public double[] toDoubleArray(float[] array)
     {
         if (array == null)
         {
@@ -697,17 +716,18 @@ public class MyGame extends VariableFrameRateGame
                     {
                         if(objectName.equals("grenade") || anotherObjectName.equals("grenade"))
                         {
+                            int id = grenadeSphere.getUID();
                             engine.getSceneGraph().removePhysicsObject(grenadeSphere);
                             //grenadeSphere = null;
                             //bullet, grenade, avatar
-                            System.out.println("you got hit by grenade");
+                            temp = "you got hit by grenade #" + id;
                             return true;
                         }
                         else if(objectName.equals("bullet") || anotherObjectName.equals("bullet"))
                         {
                             if (objectName.equals("avatar") || anotherObjectName.equals("avatar"))
                             {
-                                System.out.println("you got hit by bullet.");
+                                temp = "your bullet hit the sphere";
                             }
                             return true;
                         }
@@ -727,21 +747,6 @@ public class MyGame extends VariableFrameRateGame
     {
         switch (e.getKeyCode())
         {
-            case KeyEvent.VK_1:
-                engine.getSceneGraph().setActiveSkyBoxTexture(fps);
-                engine.getSceneGraph().setSkyBoxEnabled(true);
-                break;
-            case KeyEvent.VK_2:
-                engine.getSceneGraph().setActiveSkyBoxTexture(desert);
-                engine.getSceneGraph().setSkyBoxEnabled(true);
-                break;
-            case KeyEvent.VK_3:
-                engine.getSceneGraph().setActiveSkyBoxTexture(volcano);
-                engine.getSceneGraph().setSkyBoxEnabled(true);
-                break;
-            case KeyEvent.VK_4:
-                engine.getSceneGraph().setSkyBoxEnabled(false);
-                break;
             case KeyEvent.VK_SPACE:
                 running = true;
                 break;
@@ -758,11 +763,8 @@ public class MyGame extends VariableFrameRateGame
                 humanAnimatedShape.playAnimation("WAVE", 0.1f, AnimatedShape.EndType.LOOP, 0);
                 System.out.println("animation is playing");
                 break;
-            case KeyEvent.VK_8:
-                humanAnimatedShape.stopAnimation();
-                break;
             case KeyEvent.VK_9:
-                //humanAnimatedShape.playAnimation("DEAD");
+                humanAnimatedShape.stopAnimation();
                 break;
         }
         super.keyPressed(e);
@@ -813,7 +815,7 @@ public class MyGame extends VariableFrameRateGame
         } else
         {    // Send the initial join message with a unique identifier for this client
             System.out.println("sending join message to protocol host");
-            protClient.sendJoinMessage();
+            protClient.sendJoinMessage(path);
         }
     }
 
@@ -826,6 +828,11 @@ public class MyGame extends VariableFrameRateGame
     public Vector3f getPlayerPosition()
     {
         return avatar.getWorldLocation();
+    }
+
+    public String getPlayerTexturePath()
+    {
+        return path;
     }
 
     public void setIsConnected(boolean value)
