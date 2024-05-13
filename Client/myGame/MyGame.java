@@ -41,19 +41,27 @@ public class MyGame extends VariableFrameRateGame
     private GhostManager gm;
     private int counter = 0;
     private double startTime, prevTime, elapsedTime;
-    private GameObject avatar, x, y, z, terrain, groundPlane, grenade, speaker, animatedAvatar, gun, target, avatarBullet;
-    private AnimatedShape humanAnimatedShape, humanGunAnimatedShape, ghostAnimatedShape, ghostGunAnimatedShape;
 
-    private ObjShape line1, line2, line3, ghostGunShape, terrainShape, plane, grenadeShape, speakerShape, sphere, bulletGameObject;
+    private GameObject avatar, x, y, z, terrain, groundPlane, grenade, speaker,
+            animatedAvatar, gun, target, avatarBullet, NPCavatar;
+    private AnimatedShape humanAnimatedShape, humanGunAnimatedShape,
+            ghostAnimatedShape, ghostGunAnimatedShape, IcoNPCShape;
 
-    private TextureImage humanTexture, grass, terrainHeightMap, groundPlaneTexture, grenadeTexture, ghostTexture, uvCheckerMap, brick, bulletTexture;
+    private ObjShape line1, line2, line3, ghostGunShape, terrainShape, plane,
+            grenadeShape, speakerShape, sphere, bulletGameObject, IcoMan;
+
+    private TextureImage humanTexture, grass, terrainHeightMap,
+            groundPlaneTexture, grenadeTexture,
+            ghostTexture, uvCheckerMap, brick, bulletTexture, NPCtexture;
     private PhysicsEngine physicsEngine;
     private PhysicsObject grenadeCapsule, physicsPlane, bullet, spherePhysicsObject, avatarBox, grenadeSphere;
     private boolean running = false;
+    private boolean isNear, NPCavatarPlaying = false;
     private float vals[] = new float[16];
     private Light light;
     private int fps, desert, volcano;
     private String serverAddress;
+    private String dispStr3 = "Press F to turn ON or OFF NPC enemies";
     private int serverPort;
     private ProtocolType serverProtocol;
     private ProtocolClient protClient;
@@ -75,7 +83,7 @@ public class MyGame extends VariableFrameRateGame
     private boolean isRendering;
     private Camera camera;
     private double time, previousTime;
-    private String temp = "";
+    private String temp = "Survive";
 
     //testing
     private boolean stopPrinting = false;
@@ -120,19 +128,29 @@ public class MyGame extends VariableFrameRateGame
         line2 = new Line(new Vector3f(0, 0, 0), new Vector3f(0, 100.0f, 0));
         line3 = new Line(new Vector3f(0, 0, 0), new Vector3f(0, 0, 100.0f));
         System.out.println("loading human now");
+
+        //player avatar
         humanAnimatedShape = new AnimatedShape("humanwave.rkm", "humanwave.rks");
         humanAnimatedShape.loadAnimation("WAVE", "humanwave.rka");
         humanAnimatedShape.loadAnimation("DEAD", "humanDead.rka");
 
+        //player gun
         humanGunAnimatedShape = new AnimatedShape("gun.rkm", "gun.rks");
         humanGunAnimatedShape.loadAnimation("SWING", "gun_swing.rka");
 
+        //ghost avatar
         ghostAnimatedShape = new AnimatedShape("humanwave.rkm", "humanwave.rks");
         ghostAnimatedShape.loadAnimation("WAVE", "humanwave.rka");
         ghostAnimatedShape.loadAnimation("DEAD", "humanDead.rka");
 
+        //ghost gun
         ghostGunAnimatedShape = new AnimatedShape("gun.rkm", "gun.rks");
         ghostGunAnimatedShape.loadAnimation("SWING", "gun_swing.rka");
+
+        //npc
+        IcoMan = new ImportedModel("IcoMan.obj");
+        IcoNPCShape = new AnimatedShape("IcoMan.rkm","IcoMan.rks");
+        IcoNPCShape.loadAnimation("NPCwave","IcoMan_Wave.rka");
 
         grenadeShape = new ImportedModel("grenade.obj");
         bulletGameObject = new ImportedModel("bullet.obj");
@@ -167,6 +185,9 @@ public class MyGame extends VariableFrameRateGame
         System.out.println("Texture path selected: " + DisplaySettingsDialog.texturePath);
         path = DisplaySettingsDialog.texturePath;
         humanTexture = textureMap.get(path);
+
+        //npc
+        NPCtexture = new TextureImage("IcoMan Base Color.png");
     }
 
     @Override
@@ -252,6 +273,14 @@ public class MyGame extends VariableFrameRateGame
         gun.setLocalTranslation(new Matrix4f().translate(0, 0.75f, 2.0f));
         gun.setLocalScale(new Matrix4f().scaling(0.2f));
         gun.applyParentRotationToPosition(true);
+
+        //npc
+        NPCavatar = new GameObject(GameObject.root(), humanAnimatedShape, humanTexture);
+        NPCavatar.setLocalTranslation(new Matrix4f().translate(20f, 0f, 20f));
+        NPCavatar.setLocalScale(new Matrix4f().scaling(0.75f));
+        NPCavatar.setLocalRotation(new Matrix4f().rotationY((float) java.lang.Math.toRadians(180.0f)));
+        NPCavatar.getRenderStates().setModelOrientationCorrection(new Matrix4f().rotationY((float) Math.toRadians(90.0f)));
+
     }
 
     @Override
@@ -519,6 +548,12 @@ public class MyGame extends VariableFrameRateGame
         (engine.getHUDmanager()).setHUD1(dispStr1, hud1Color, 15, 15);
         (engine.getHUDmanager()).setHUD2(dispStr2, hud2Color, 500, 15);
 
+
+        if(isNear){
+            //TODO: this should be working now, not tested
+            (engine.getHUDmanager()).setHUD3(dispStr3,hud2Color, 960, 540);
+        }
+
         // update inputs and camera
         processNetworking((float) elapsedTime);
 
@@ -537,6 +572,11 @@ public class MyGame extends VariableFrameRateGame
         gunShotSound.setLocation(gun.getWorldLocation());
         humanAnimatedShape.updateAnimation();
         humanGunAnimatedShape.updateAnimation();
+
+        //TODO:NPC think function
+        NPCthink();
+
+
     }
 
     public void setEarParameters()
@@ -862,4 +902,35 @@ public class MyGame extends VariableFrameRateGame
             }
         }
     }
+
+    //npc think controller
+    //TODO: add a tracker to NPCthink for fallowing the player avatar
+    //while moving side to side through cover
+    //this spawned in by the NPC helper
+    //TODO: remake npc model
+    public void NPCthink(){
+        if(NPCavatar.getLocalLocation().distance(avatar.getLocalLocation()) > 20){
+            if(!NPCavatarPlaying) {
+                humanAnimatedShape.playAnimation("WAVE", 0.01f, AnimatedShape.EndType.LOOP, 0);
+                NPCavatarPlaying = true;
+            }else{
+            }
+            isNear = false;
+            temp ="isnear false";
+        } else if (NPCavatar.getLocalLocation().distance(avatar.getLocalLocation()) > 10 && NPCavatar.getLocalLocation().distance(avatar.getLocalLocation()) < 20) {
+            NPCavatar.setLocalScale(new Matrix4f().scaling(0.5f + (1/(10/NPCavatar.getLocalLocation().distance(avatar.getLocalLocation()))))) ;
+            isNear = false;
+            temp ="isnear false";
+        } else if (NPCavatar.getLocalLocation().distance(avatar.getLocalLocation()) < 10) {
+            if(NPCavatarPlaying){
+                humanAnimatedShape.stopAnimation();
+                NPCavatarPlaying = false;
+            }else {
+            }
+            isNear = true;
+            temp ="isnear True";
+        }
+    }
+
+
 }
