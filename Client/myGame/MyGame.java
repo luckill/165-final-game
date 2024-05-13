@@ -41,12 +41,12 @@ public class MyGame extends VariableFrameRateGame
     private GhostManager gm;
     private int counter = 0;
     private double startTime, prevTime, elapsedTime;
-    private GameObject avatar, x, y, z, terrain, groundPlane, grenade, speaker, animatedAvatar, gun, target;
+    private GameObject avatar, x, y, z, terrain, groundPlane, grenade, speaker, animatedAvatar, gun, target, avatarBullet;
     private AnimatedShape humanAnimatedShape, humanGunAnimatedShape, ghostAnimatedShape, ghostGunAnimatedShape;
 
-    private ObjShape line1, line2, line3, ghostGunShape, terrainShape, plane, grenadeShape, speakerShape, sphere;
+    private ObjShape line1, line2, line3, ghostGunShape, terrainShape, plane, grenadeShape, speakerShape, sphere, bulletGameObject;
 
-    private TextureImage humanTexture, grass, terrainHeightMap, groundPlaneTexture, grenadeTexture, ghostTexture, uvCheckerMap, brick;
+    private TextureImage humanTexture, grass, terrainHeightMap, groundPlaneTexture, grenadeTexture, ghostTexture, uvCheckerMap, brick, bulletTexture;
     private PhysicsEngine physicsEngine;
     private PhysicsObject grenadeCapsule, physicsPlane, bullet, spherePhysicsObject, avatarBox, grenadeSphere;
     private boolean running = false;
@@ -135,6 +135,7 @@ public class MyGame extends VariableFrameRateGame
         ghostGunAnimatedShape.loadAnimation("SWING", "gun_swing.rka");
 
         grenadeShape = new ImportedModel("grenade.obj");
+        bulletGameObject = new ImportedModel("bullet.obj");
         terrainShape = new TerrainPlane(1000);
         plane = new Plane();
         speakerShape = new Cube();
@@ -153,6 +154,7 @@ public class MyGame extends VariableFrameRateGame
     public void loadTextures()
     {
         grass = new TextureImage("grass.jpg");
+        bulletTexture = new TextureImage("bullet_colored.png");
         terrainHeightMap = new TextureImage("HeightMap.png");
         groundPlaneTexture = new TextureImage("grass.jpg");
         grenadeTexture = new TextureImage("grenade.png");
@@ -205,15 +207,20 @@ public class MyGame extends VariableFrameRateGame
         (y.getRenderStates()).setColor(new Vector3f(0f, 1f, 0f));
         (z.getRenderStates()).setColor(new Vector3f(0f, 0f, 1f));
 
+        Set<Integer> axisSet = new HashSet<>();
+        Random random = new Random();
+
         avatar = new GameObject(GameObject.root(), humanAnimatedShape, humanTexture);
-        initialTranslation = new Matrix4f().translation(0, 0, 0);
-        initialRotation = new Matrix4f().rotationY((float) java.lang.Math.toRadians(180.0f));
+        float x = random.nextFloat(20);
+        float z = random.nextFloat(20);
+        initialTranslation = new Matrix4f().translation(x, 0, z);
+
+        initialRotation = new Matrix4f();
         initialScale = (new Matrix4f()).scaling(0.75f);
         avatar.setLocalTranslation(initialTranslation);
         avatar.setLocalRotation(initialRotation);
         avatar.setLocalScale(initialScale);
         avatar.getRenderStates().setModelOrientationCorrection(new Matrix4f().rotationY((float) Math.toRadians(90.0f)));
-
 
         Matrix4f avatarTranslation = avatar.getLocalTranslation().translate(0,0.95f,0);
         tempTransform = toDoubleArray(avatarTranslation.get(vals));
@@ -237,12 +244,12 @@ public class MyGame extends VariableFrameRateGame
 
         speaker = new GameObject(GameObject.root(), speakerShape);
         speaker.setParent(avatar);
-        speaker.setLocalTranslation(avatar.getWorldTranslation().translate(0, 0, -10));
+        speaker.setLocalTranslation(new Matrix4f().translate(0, 0, 10));
         speaker.propagateRotation(false);
         //avatar.setPhysicsObject(avatarBox);
 
         gun = new GameObject(avatar, humanGunAnimatedShape);
-        gun.setLocalTranslation(avatar.getWorldTranslation().translate(0, 0.75f, 2.0f));
+        gun.setLocalTranslation(new Matrix4f().translate(0, 0.75f, 2.0f));
         gun.setLocalScale(new Matrix4f().scaling(0.2f));
         gun.applyParentRotationToPosition(true);
     }
@@ -256,7 +263,7 @@ public class MyGame extends VariableFrameRateGame
         engine.getSceneGraph().addLight(light);
 
         light = new Light();
-        light.setLocation(new Vector3f(0.0f,2.0f, -5.0f));
+        light.setLocation(new Vector3f(0.0f,2.0f, 5.0f));
         (engine.getSceneGraph()).addLight(light);
     }
 
@@ -320,7 +327,7 @@ public class MyGame extends VariableFrameRateGame
     {
         LightManager manager = engine.getLightManager();
         Light light = manager.getLight(1);
-        light.setLocation(avatar.getWorldLocation().add(0,2,-5));
+        light.setLocation(avatar.getWorldLocation().add(0,2,5));
         if (exploded)
         {
             Light.setGlobalAmbient(1,1,1);
@@ -360,11 +367,15 @@ public class MyGame extends VariableFrameRateGame
         inputManager.update((float) elapsedTime);
         if (shoot)
         {
-            Matrix4f translation1 = gun.getWorldTranslation().translate(0, 0.80f, -1.0f);
+            avatarBullet = new GameObject(GameObject.root(), bulletGameObject, bulletTexture);
+            avatarBullet.setLocalScale(new Matrix4f().scaling(1.4f));
+            Matrix4f translation1 = gun.getWorldTranslation().translate(0,0.80f,1);
             tempTransform = toDoubleArray(translation1.get(vals));
             bullet = engine.getSceneGraph().addPhysicsCylinderZ(1.0f, tempTransform, 0.05f, 0.05f);
+            avatarBullet.setPhysicsObject(bullet);
+
             Vector3f forward = gun.getWorldForwardVector();
-            bullet.setLinearVelocity(new float[]{forward.x()*100, 0, forward.z()*100});
+            //bullet.setLinearVelocity(new float[]{forward.x()*100, 0, forward.z()*100});
             bullets.put(bullet.getUID(), bullet);
             shoot = false;
         }
@@ -375,13 +386,14 @@ public class MyGame extends VariableFrameRateGame
             if(checkCollision(entry.getValue(), physicsPlane, "bullet", "plane"))
             {
                 engine.getSceneGraph().removePhysicsObject(entry.getValue());
+                //engine.getSceneGraph().removeGameObject(entry.getValue());
                 entries.remove();
             }
             for (int i = 0; i < spheres.size(); i++)
             {
                 if (checkCollision(entry.getValue(), spheres.get(i), "bullet", ""))
                 {
-                    engine.getSceneGraph().removePhysicsObject(entry.getValue());
+                    //engine.getSceneGraph().removePhysicsObject(entry.getValue());
                     //bullet = null;
                     entries.remove();
                 }
@@ -391,7 +403,7 @@ public class MyGame extends VariableFrameRateGame
         if (grenade == null && running)
         {
             grenade = new GameObject(GameObject.root(), grenadeShape, grenadeTexture);
-            grenade.setLocalLocation(avatar.getWorldLocation().add(0,0,-2));
+            grenade.setLocalLocation(avatar.getWorldLocation().add(0,0,2));
             Matrix4f translation = new Matrix4f(grenade.getLocalTranslation());
             tempTransform = toDoubleArray(translation.get(vals));
             grenadeCapsule = engine.getSceneGraph().addPhysicsCapsuleX(1.0f, tempTransform, radius, height);
@@ -525,7 +537,6 @@ public class MyGame extends VariableFrameRateGame
         gunShotSound.setLocation(gun.getWorldLocation());
         humanAnimatedShape.updateAnimation();
         humanGunAnimatedShape.updateAnimation();
-
     }
 
     public void setEarParameters()
