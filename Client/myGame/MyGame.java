@@ -40,10 +40,10 @@ public class MyGame extends VariableFrameRateGame
     private InputManager inputManager;
     private GhostManager gm;
     private int counter = 0;
-    private double startTime, prevTime, elapsedTime;
+    private double startTime, prevTime, elapsedTime, waitTime;
 
     private GameObject avatar, x, y, z, terrain, groundPlane, grenade, speaker,
-            animatedAvatar, gun, target, avatarBullet, NPCavatar;
+            animatedAvatar, gun, target, avatarBullet, NPCavatar, NPCenemy;
     private AnimatedShape humanAnimatedShape, humanGunAnimatedShape,
             ghostAnimatedShape, ghostGunAnimatedShape, IcoNPCShape;
 
@@ -56,7 +56,8 @@ public class MyGame extends VariableFrameRateGame
     private PhysicsEngine physicsEngine;
     private PhysicsObject grenadeCapsule, physicsPlane, bullet, spherePhysicsObject, avatarBox, grenadeSphere;
     private boolean running = false;
-    private boolean isNear, NPCavatarPlaying = false;
+    private boolean isNear, NPCavatarPlaying, NPCeLive = false;
+    private boolean NPCeSpawned = false;
     private float vals[] = new float[16];
     private Light light;
     private int fps, desert, volcano;
@@ -551,7 +552,9 @@ public class MyGame extends VariableFrameRateGame
 
         if(isNear){
             //TODO: this should be working now, not tested
-            (engine.getHUDmanager()).setHUD3(dispStr3,hud2Color, 960, 540);
+            engine.getHUDmanager().setHUD3(dispStr3,hud2Color, 960, 540);
+        }else{
+            engine.getHUDmanager().setHUD3(" ",hud2Color,960, 540);
         }
 
         // update inputs and camera
@@ -817,6 +820,18 @@ public class MyGame extends VariableFrameRateGame
             case KeyEvent.VK_9:
                 humanAnimatedShape.stopAnimation();
                 break;
+            case KeyEvent.VK_F:
+                if(isNear){
+                    if(!NPCeLive){
+                        System.out.println("trying to spawn NPCe.");
+                        NPCeLive = true;
+                    }else if(NPCeLive){
+                        NPCeLive = false;
+                    }
+                }else{
+                }
+                break;
+
         }
         super.keyPressed(e);
     }
@@ -909,6 +924,7 @@ public class MyGame extends VariableFrameRateGame
     //this spawned in by the NPC helper
     //TODO: remake npc model
     public void NPCthink(){
+        //NPCavatar player communication logic
         if(NPCavatar.getLocalLocation().distance(avatar.getLocalLocation()) > 20){
             if(!NPCavatarPlaying) {
                 humanAnimatedShape.playAnimation("WAVE", 0.01f, AnimatedShape.EndType.LOOP, 0);
@@ -930,7 +946,37 @@ public class MyGame extends VariableFrameRateGame
             isNear = true;
             temp ="isnear True";
         }
-    }
+
+        //NPC enemy patrol logic on spawn
+        if(NPCeLive){
+            if(NPCeSpawned){
+                if((waitTime+1) < startTime) {
+                    NPCenemy.moveForwardOrBackward(20);
+                    NPCenemy.globalYaw(2f);
+                    waitTime = startTime;
+                }else{
+
+                }
+            }else if(!NPCeSpawned){
+                NPCenemy = new GameObject(GameObject.root(), humanAnimatedShape, humanTexture);
+                NPCenemy.setLocalTranslation(new Matrix4f().translate(10f, 0f, 40f));
+                NPCenemy.setLocalScale(new Matrix4f().scaling(0.75f));
+                NPCenemy.setLocalRotation(new Matrix4f().rotationY((float) java.lang.Math.toRadians(180.0f)));
+                NPCenemy.getRenderStates().setModelOrientationCorrection(new Matrix4f().rotationY((float) Math.toRadians(90.0f)));
+                NPCeSpawned = true;
+                waitTime = startTime;
+                System.out.println("spawned NPCe.");
+            }
+        }else if(!NPCeLive){
+            if(NPCeSpawned) {
+                engine.getSceneGraph().removeGameObject(NPCenemy);
+                NPCeSpawned = false;
+            }else if(!NPCeSpawned){
+            }
+        }
+
+
+    }//NPCthink
 
 
 }
